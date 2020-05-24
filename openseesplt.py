@@ -8,8 +8,9 @@ Created on Fri May 31 22:48:25 2019
 # import sys
 # C:\Users\Christian\.01_Thesis\Scripts\Python\ImageProcessing
 # sys.path.append('C:\\Users\\Christian\\Anaconda3\\Lib\\site-packages\\openseespy')
-import openseespy.opensees as op
 
+import openseespy.opensees as op
+# import openseespy.postprocessing
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -17,8 +18,22 @@ import matplotlib.pyplot as pl
 import matplotlib.animation as animation
 
 import openseesplt.DataFunctions as df
-import openseesplt.StyleSheet
+# import openseesplt.StyleSheet
 import os
+
+
+
+
+
+# TODO: Create standarized "Draw" Function
+
+# TODO: Seperate out earthquake enabling functions.
+
+
+
+
+
+
 
 
 
@@ -26,14 +41,21 @@ def getNodesCoords():
     """
     Returns
     -------
-    nodeCoords : Array
+    nodeCoords : nxm array
         Returns the an array with the node ID, followed by node coordinate for 
         each node in the model
+        n is the number of nodes
+        m is the number of dimensions + 1        
+        
     """
+    # Get the Node tags
     nodeTags = op.getNodeTags()
     sizeN = len(nodeTags)
     
-    nodeCoords = np.zeros([sizeN,3])
+    # Get the number of Dimensions
+    sizeM = op.nodeCoord(nodeTags[0])
+    
+    nodeCoords = np.zeros([sizeN, sizeM + 1])
     
     for ii in range(sizeN):
         # Get Coordinants
@@ -71,7 +93,7 @@ def getElementConnectivity1D():
     
     Returns
     -------
-    elementConnectivity1d : TYPE
+    elementConnectivity1d : Array
         Returns an array with the elmenet tag as well as the nodes used to 
         define the element.
     """
@@ -79,11 +101,9 @@ def getElementConnectivity1D():
     sizeE = len(ElementTags)
 
     elementConnectivity1d = np.zeros([sizeE,3],dtype = int)
-    elementConnectivity2d = np.zeros([sizeE,5],dtype = int)
 
     # Get the Nodes associated with each element
     index1d = 0
-    index2d = 0
     
     # Plot the elements in the model
     for ii in range(sizeE):
@@ -104,9 +124,49 @@ def getElementConnectivity1D():
             pass
         
     return elementConnectivity1d
+
+    
+def getElementConnectivity2D():
+    """
+    This function gets the element connectivity for an active model
+    
+    Returns
+    -------
+    elementConnectivity1d : TYPE
+        Returns an array with the elmenet tag as well as the nodes used to 
+        define the element.
+    """
+    # Get Element tags
+    ElementTags = np.array(op.getEleTags())
+    sizeE = len(ElementTags)
+
+    # Define Connectivity Matrix
+    elementConnectivity2d = np.zeros([sizeE,5],dtype = int)
+
+    # Get the Nodes associated with each element
+    index2d = 0
+    
+    # Plot the elements in the model
+    for ii in range(sizeE):
+                
+        # Get the nodes
+        element = int(ElementTags[ii])
+        nodes = op.eleNodes(element)
         
+        # If the element has only two nodes.
+        if len(nodes) == 4:            
+            # Store the element
+            elementConnectivity2d[index2d, 0] = element
+            elementConnectivity2d[index2d, 1:] = nodes
+            
+            # Incriment Index
+            index2d += 1
+        elif len(nodes) == 3:
+            pass
         
-def printElements(FileName,delim=',',fmt ='%.5i' ):
+    return elementConnectivity2d
+        
+def printElements(FileName, delim = ',', fmt ='%.5i' ):
     """
     This saves gets the element connectivity for an active model to a file
 
@@ -115,8 +175,10 @@ def printElements(FileName,delim=',',fmt ='%.5i' ):
     ----------
     FileName : string
         It's the file name.
+    delim : TYPE, optional
+        The format numbers will be stored in. The default is '%.5i'.
     fmt : TYPE, optional
-        This is the format of the output numebers. The default is '%.5i'.
+        The format numbers will be stored in. The default is '%.5i'.
 
     Returns
     -------
@@ -128,7 +190,11 @@ def printElements(FileName,delim=',',fmt ='%.5i' ):
     np.savetxt(FileName, outputCoords, delimiter = delim,fmt = '%.5i')
 
 
-def TestDisplay():
+def DisplayWithEvents():
+    """
+    Plots the model background, and allows for the user to specific events.
+
+    """
     
     def pickEvent(event):
         chosenObject = event.artist
@@ -202,64 +268,89 @@ def TestDisplay():
 def AnimateXYFile(fileName_x, fileName_y='', column_x=1, column_y=1, 
                skipStart = 0, skipEnd = 0, rFactor=1, outputFrames=0, fps = 24, 
                Xbound = [],Ybound = []):
+    """
+    
+    Animation function
 
-    """Parameters
-    fileName_x: str
+
+    Parameters
+    ----------
+    fileName_x : string
         The name of the file to read x data from. 
-    fileName_y: str
+    fileName_y : string, optional
         The name of the file to read y data from. If there is no path 
-        specified, the x file name will be used as well.
-    column_x: int
-        The column in the x data file data is read from.
-    column_y: int
-        The column in the y data file data is read from.
-    skipStart: int
+        specified, the x file name will be used as well. The default is ''.
+    column_x : TYPE, optional
+        The column in the x data file data is read from. The default is 1.
+    column_y : TYPE, optional
+        The column in the y data file data is read from. The default is 1.
+    skipStart : int, optional
         If specified, this many datapoints will be skipped from the data start.
-    skipStart: int
-        If specified, this many frames will be skipped at the analysis start.
-    rFactor: int
-        If specified, only every "x" frames will be reduced by this factor
-    outputFrames: int
+        The default is 0.
+    skipEnd : int, optional
+        If specified, this many frames will be skipped at the end of 
+        the analysis. The default is 0.
+    rFactor : int, optional
+        If specified, only every "x" frames will be reduced by this factor. 
+        The default is 1.
+    outputFrames : int, optional
         The number of frames to be included after all other reductions. If the
         reduced number of frames is less than this value, no change is made.
-    fps: int
-        Number of animation frames to be displayed per second
+        The default is 0.
+    fps : int, optional
+        Number of animation frames to be displayed per second. The default is 24.
+    Xbound : TYPE, optional
+        DESCRIPTION. The default is [].
+    Ybound : TYPE, optional
+        DESCRIPTION. The default is [].
+
     
     """
 
     # Get the x data
-    InputData_x = np.loadtxt(fileName_x,delimiter=',')    
-    xinput = InputData_x[:,column_x]
+    InputData_x = np.loadtxt(fileName_x, delimiter=',')    
+    xinput = InputData_x[:, column_x]
     
     # Get the y data
     if fileName_y == '':
         fileName_y = fileName_x
-    InputData_y = np.loadtxt(fileName_y,delimiter=',')    
-    yinput = InputData_y[:,column_y]      
+    InputData_y = np.loadtxt(fileName_y, delimiter=',')    
+    yinput = InputData_y[:, column_y]      
     
+    # Animate the output.
     AnimateXY(xinput, yinput, skipStart, skipEnd, rFactor, 
-           outputFrames, fps, Xbound,Ybound)
+           outputFrames, fps, Xbound, Ybound)
 
 
 def AnimateXY(xinput, yinput, skipStart = 0, skipEnd = 0, rFactor=1, 
            outputFrames=0, fps = 24, Xbound = [],Ybound = []):
-
-    """Parameters
-    xinput: numpy array
-        The x data to animate.
-    yinput: numpy array
-        The y data to animate.
-    skipStart: int
+    """
+    Parameters
+    ----------
+    xinput : 1d array
+        The input x coordinants. 
+    yinput : 1d array
+        The input y coordinants. 
+    skipStart : int, optional
         If specified, this many datapoints will be skipped from the data start.
-    skipStart: int
-        If specified, this many frames will be skipped at the analysis start.
-    rFactor: int
-        If specified, only every "x" frames will be reduced by this factor
-    outputFrames: int
+        The default is 0.
+    skipEnd : int, optional
+        If specified, this many frames will be skipped at the end of 
+        the analysis. The default is 0.
+    rFactor : int, optional
+        If specified, only every "x" frames will be reduced by this factor. 
+        The default is 1.
+    outputFrames : int, optional
         The number of frames to be included after all other reductions. If the
         reduced number of frames is less than this value, no change is made.
-    fps: int
-        Number of animation frames to be displayed per second
+        The default is 0.
+    fps : int, optional
+        Number of animation frames to be displayed per second. The default is 24.
+    Xbound : [xmin, xmax], optional
+        The domain of the chart. The default is 1.1 the max and min values.
+    Ybound : [ymin, ymax], optional
+        The range of the chart. The default is 1.1 the max and min values.
+
     
     """
 
@@ -267,10 +358,10 @@ def AnimateXY(xinput, yinput, skipStart = 0, skipEnd = 0, rFactor=1,
     if len(xinput) != len(yinput):
         raise Exception('Lengths of input vectors unequal')
     
-    
     # If end data is not being skipped, use the full vector length.
     if skipEnd ==0:
         skipEnd = len(xinput)
+    
     
     # Set up bounds based on data from 
     if Xbound == []:
@@ -279,13 +370,14 @@ def AnimateXY(xinput, yinput, skipStart = 0, skipEnd = 0, rFactor=1,
     else:
         xmin = Xbound[0]       
         xmax = Xbound[1]
-        
+    
     if Ybound == []:
         ymin = 1.1*np.min(yinput)  
         ymax = 1.1*np.max(yinput)        
     else:
         ymin = Ybound[0]       
         ymax = Ybound[1]          
+    
     
     # Remove unecessary data
     xinput = xinput[skipStart:skipEnd]
@@ -317,18 +409,16 @@ def AnimateXY(xinput, yinput, skipStart = 0, skipEnd = 0, rFactor=1,
     # Define the update function
     def update_line(time, data, line, line2):
         
+        # Get the current data        
+        currentData = data[...,:(time+1)]
         
-        # lastPoint = np.array([CurrentData_x[-1],CCurrentData_y[-1])
-        currentData = data[...,:(time+1)*2]
+        # Update the background line
         line.set_data(currentData)
-        # print(currentData)    
-        # [x,y] = print(currentData[:,-1])
+
+        # Get the Current xy point
         [x,y] = currentData[:,-1]
-        # line2.set_data(currentData[:,-1],currentData[:,-1])
+        # update te second line
         line2.set_data(x,y)
-        
-        # plt.plot(currentData[:,-2], currentData[:,-1])
-        # line.set_data(data[...,:time])    
         
         return line, line2
     
@@ -338,86 +428,65 @@ def AnimateXY(xinput, yinput, skipStart = 0, skipEnd = 0, rFactor=1,
     line_ani = animation.FuncAnimation(fig1, update_line, outputFrames, 
                                        fargs=(data, line, line2), 
                                        interval=interval, blit=True)
-
-
-def AnimateTime(timeInput, yInput, skipStartTime = 0, skipEndTime = 0, 
-                rFactor=1, outputFrames=0, fps = 24, Xbound = [],Ybound = []):
-
-    """Parameters
-    xinput: numpy array
-        The x data to animate.
-    yinput: numpy array
-        The y data to animate.
-    skipStart: int
-        If specified, this many datapoints will be skipped from the data start.
-    skipStart: int
-        If specified, this many frames will be skipped at the analysis start.
-    rFactor: int
-        If specified, only every "x" frames will be reduced by this factor
-    outputFrames: int
-        The number of frames to be included after all other reductions. If the
-        reduced number of frames is less than this value, no change is made.
-    fps: int
-        Number of animation frames to be displayed per second
+    return line_ani
     
+
+def AnimateCyclicXYCurves(Curve1, Curve2, NFrames = 120, fps = 24, 
+                          peakDist = 10, Xbound = [], Ybound = []):
     """
+    This functions plots two curves, allowing us to compare experimental and 
+    non-experiemntal.
 
-    # Check if the x and y data are of the same length, if not raise a error.
-    if len(timeInput) != len(yInput):
-        raise Exception('Lengths of input vectors unequal')
-    
 
-def AnimateCyclicXYCurves(Curve1, Curve2, Npoint = 48, fps = 24, Xbound = [],
-                          Ybound = []):
-    """
-    Most appropraite for two force based analyses
-    
     Parameters
     ----------
-    Curve1 : The first curve to animate
-        DESCRIPTION.
+    Curve1 : TYPE
+        the first curve to animate.
     Curve2 : TYPE
-        DESCRIPTION.
-    NPoint : TYPE, optional
-        DESCRIPTION. The default is 48.
+        the second curve to animate.
+    NFrames : TYPE, optional
+        Number of frames between cycles in the animation. The default is 48.
     fps : TYPE, optional
-        DESCRIPTION. The default is 24.
-    Raises
-    ------
-    Exception
-        DESCRIPTION.
-    Returns
-    -------
-    None.
-    """
+        The number of frames per second. The default is 24.
+    peakDist : TYPE, optional
+        This is used to find X direction reversals. We look for peaks within 
+        this distance. The default is 10.
+    Xbound : [xmin, xmax], optional
+        A custome bound on the graphs xlimits. The default is [].
+    Ybound : [xmin, xmax], optional
+        A custome bound on the graphs ylimits. The default is [].
 
+
+    """
     
     # Detect reversal points
-    curve1Indicies = df.GetCycleIndicies(Curve1[:,0], Curve1[:,1], peakDist = 10,CreatePlot = 'y')
+    curve1Indicies = df.GetCycleIndicies(Curve1[:,0], Curve1[:,1], peakDist = 10)
     curve2Indicies = df.GetCycleIndicies(Curve2[:,0], Curve2[:,1], peakDist = 20)
     
+    # Define the number of cycles, i.e. the number of indexes in the range
+    Ncycles = len(curve1Indicies) - 1
+    Ncycles_2 = len(curve2Indicies) - 1
     
-    NIndex = len(curve1Indicies) - 1
-    NIndex_2 = len(curve2Indicies) - 1
-    
-    if NIndex!=NIndex_2:
+    if Ncycles!=Ncycles_2:
         raise Exception('The experiment and Analysis have a different number of cycles')
     
-    Nsteps = NIndex*Npoint
+    Nsteps = Ncycles*NFrames
     
+    # Initialize animation curve
     animationCurve1 = np.zeros([Nsteps,2])
     animationCurve2 = np.zeros([Nsteps,2])
     
-    for ii in range (NIndex):
+    # Create the animation curve for the
+    for ii in range (Ncycles):
     
-        [Ex,Ey] = df.GetCycleSubVector(Curve1[:,0] , Curve1[:,1], curve1Indicies[ii], curve1Indicies[ii+1], Npoint)
-        [Ax,Ay] = df.GetCycleSubVector(Curve2[:,0] , Curve2[:,1], curve2Indicies[ii], curve2Indicies[ii+1], Npoint)
+        [Ex,Ey] = df.GetCycleSubVector(Curve1[:,0] , Curve1[:,1], curve1Indicies[ii], curve1Indicies[ii+1], NFrames)
+        [Ax,Ay] = df.GetCycleSubVector(Curve2[:,0] , Curve2[:,1], curve2Indicies[ii], curve2Indicies[ii+1], NFrames)
         
-        animationCurve1[ii*Npoint:(ii+1)*Npoint,0] = Ex
-        animationCurve1[ii*Npoint:(ii+1)*Npoint,1] = Ey
+        animationCurve1[ii*NFrames:(ii+1)*NFrames,0] = Ex
+        animationCurve1[ii*NFrames:(ii+1)*NFrames,1] = Ey
 
-        animationCurve2[ii*Npoint:(ii+1)*Npoint,0] = Ax
-        animationCurve2[ii*Npoint:(ii+1)*Npoint,1] = Ay
+        animationCurve2[ii*NFrames:(ii+1)*NFrames,0] = Ax
+        animationCurve2[ii*NFrames:(ii+1)*NFrames,1] = Ay
     
     
     if Xbound == []:
@@ -451,8 +520,8 @@ def AnimateCyclicXYCurves(Curve1, Curve2, Npoint = 48, fps = 24, Xbound = [],
     def update_line(time, animationCurve1, animationCurve2, line, line2, line3, line4):
         
         
-        currentData1 = animationCurve1[...,:(time+1)*2]
-        currentData2 = animationCurve2[...,:(time+1)*2]
+        currentData1 = animationCurve1[...,:(time+1)]
+        currentData2 = animationCurve2[...,:(time+1)]
 
         line.set_data(currentData1)
         [x1,y1] = currentData1[:,-1]
@@ -472,39 +541,155 @@ def AnimateCyclicXYCurves(Curve1, Curve2, Npoint = 48, fps = 24, Xbound = [],
     return ani
 
 
-def ChonkyEQAnimation(DispFileName,NodeFileName,ElementFileName, 
-              Scale = 2, fps = 24, FrameInterval = 0, skipFrame =1):
-    import DataFunctions as D
+def GetEQDis2D(DispFileDir, dtFrames, saveFile = True, outputNameT = 'TimeOut',
+               outputNameX = 'DispOutX', outputNameY = 'DispOutY'):
+    """
+    This function processes information from a 2D earthquake displacement file
+    It's assumed that the input file records the x,y, theta, of all nodes.
     
-    # It's chonky because it has to re-process the data every time. It would 
-    # be better to have one function that process the data, and another that
-    # plots the data
+    If 
+
+    Parameters
+    ----------
+    DispFileDir : str
+        The input file .
+    dtFrames : float
+        The desired time interval between animation frames.
+    saveFile : str, optional
+        If this is toggled on, a file will be saved. The default is True.
+    outputNameT : str, optional
+        Name for the output time file. The default is 'TimeOut'.
+    outputNameX : str, optional
+        Name for the output X displacement file. The default is 'DispOutX'.
+    outputNameY : str, optional
+        Name for the output Y displacement file. The default is 'DispOutY'.
+
+    Returns
+    -------
+    TimeAnimation : array
+        The output time array.
+    dx : array
+        The output x displacement of all nodes.
+    dy : array
+        The output y displacement of all nodes.
+
+    """
     
+    import openseesplt.DataFunctions as D    
+    # read the files using numpy
+    DisplacementData = np.loadtxt(DispFileDir,dtype ='float32', delimiter=' ',)
+    
+    
+    # Get vectors of time data and base x and y locations
+    # x0 and y0 are vectors with n columns, where n is the number of nodes
+    timeEarthquake = DisplacementData[:, 0]
+    
+    # This will need to be changed based on the amount of elements
+    N_Time = len(timeEarthquake)
+    
+    # Organize displacement data
+    dxEarthquake = DisplacementData[:, 1::3]
+    dyEarthquake = DisplacementData[:, 2::3]
+    
+    # Plot structure
+    ## this could possibly be a function
+    
+    # Create variables to store
+    Tmax = np.max(timeEarthquake)
+    Tmin = np.min(timeEarthquake)
+    TimeAnimation = np.arange(Tmin,Tmax,dtFrames)
+    Ntime = len(TimeAnimation)
+    N_nodes = len(DisplacementData[0, 1::3])
+    
+    dx = np.zeros([Ntime,N_nodes])
+    dy = np.zeros([Ntime,N_nodes])
+    
+    # Shift the data into a common frame.
+    counter = 0
+    for ii in range(N_nodes):
+        if np.floor(10*ii/N_nodes) > counter:
+            print('The processing is ', (counter + 1)*10, ' percent complete.')
+            counter +=1
+            
+        dx[:,ii] = D.ShiftDataFrame(timeEarthquake,dxEarthquake[:,ii],TimeAnimation)
+        dy[:,ii] = D.ShiftDataFrame(timeEarthquake,dyEarthquake[:,ii],TimeAnimation)
+    
+    if saveFile == True:
+        np.savetxt(outputNameT + '.csv',TimeAnimation, delimiter = ',')
+        np.savetxt(outputNameX + '.csv',dx, delimiter = ',')
+        np.savetxt(outputNameY + '.csv',dy, delimiter = ',')
+   
+    return TimeAnimation, dx, dy    
+
+
+def EQAnimation2D(dt, dx, dy, NodeFileName, ElementFileName, Scale = 1, fps = 24, 
+                FrameInterval = 0, skipFrame =1, timeScale = 1):
+    """
+    This function animates a 2D earthquake. Only supports 1D elements, i.e. 
+    beams.
+    
+    It's unlikely that the animation will actually run at the desired fps.
+    Having a real time fps is dubious at best.
+
+    Parameters
+    ----------
+    dt : 1D array
+        The input time steps.
+    dx : 1D array
+        The input x displacement values for every node at each timestep.
+    dy : 1D array
+        The input y displacement values for every node at each timestep.
+    NodeFileName : Str
+        Name of the input node information file.
+    ElementFileName : Str
+        Name of the input element connectivity file.
+    Scale : positive float, optional
+        The scale on the xy displacements. The default is 1.
+    fps : TYPE, optional
+        The frames per second to be displayed. These values are dubious at best
+        The default is 24.
+    FrameInterval : The interval between frames to be used, optional
+        DESCRIPTION. The default is 0.
+    skipFrame : TYPE, optional
+        DESCRIPTION. The default is 1.
+    timeScale : TYPE, optional
+        DESCRIPTION. The default is 1.
+
+    Returns
+    -------
+    TYPE
+        DESCRIPTION.
+
+    """
+    
+    
+    """
+    This function animates an earthquake, given a set of input files.
+    
+
+    
+    """
+       
     
     # =============================================================================
     # Get the data
     # =============================================================================
     
     # Scale on displacement
-
+    dtFrames  = dt[1]
+    Ntime = len(dt)
     
     # Create the directory names and import the necessary file(s)
     BaseDirectory = os.getcwd()
     
     # Get Displacement file Names
-    DisplacementDirectory = "%s\%s" % (BaseDirectory, DispFileName)
     NodeDirectory = "%s\%s" % (BaseDirectory, NodeFileName)
     ElementDirectory = "%s\%s" % (BaseDirectory, ElementFileName)
     
     # read the files using numpy
-    DisplacementData = np.loadtxt(DisplacementDirectory,dtype ='float32', delimiter=' ',)
     NodeCoords = np.loadtxt(NodeDirectory, delimiter=',')
     Elements = np.loadtxt(ElementDirectory, delimiter=',')
     
-    
-    # Get vectors of time data and base x and y locations
-    # x0 and y0 are vectors with n columns, where n is the number of nodes
-    timeEarthquake = DisplacementData[:, 0]
     
     # names of each node
     Node_Labels = NodeCoords[:, 0]
@@ -518,60 +703,50 @@ def ChonkyEQAnimation(DispFileName,NodeFileName,ElementFileName,
     
     # This will need to be changed based on the amount of elements
     N_ele = len(Elements)
-    N_Time = len(timeEarthquake)
     
     # Create mapping of x and y node values to their labels
     xy_labels = {}
     for ii in range(N_nodes):
         xy_labels[Node_Labels[ii]] = [x0[ii], y0[ii]]
     
-    # Organize displacement data
-    dxEarthquake = DisplacementData[:, 1::3]
-    dyEarthquake = DisplacementData[:, 2::3]
+        
+    # Get bounds
+    dxMax = np.max(np.abs(dx))*Scale
+    dyMax = np.max(np.abs(dy))*Scale
     
-    # Plot structure
-    ## this could possibly be a function
+    xmax = 1.05*np.max(x0 + dxMax)
+    xmin = 1.05*np.min(x0 - dxMax)
+    ymax = 1.05*np.max(y0 + dyMax)
+    ymin = 1.05*np.min(y0 - dyMax)
+    MaxValue = np.max(np.abs([xmax,xmin,ymax,ymin]))
     
-    # Create variables to store
-    dtFrames = 1 / fps
-    Tmax = np.max(timeEarthquake)
-    Tmin = np.min(timeEarthquake)
-    TimeAnimation = np.arange(Tmin,Tmax,dtFrames)
-    Ntime = len(TimeAnimation)
+    ybound = ymax*(ymax/MaxValue)
+    xbound = xmax*(xmax/MaxValue)        
     
-    dx = np.zeros([Ntime,N_nodes])
-    dy = np.zeros([Ntime,N_nodes])
     
-    # Shift the data into a common frame.
-    for ii in range(N_nodes):
-        dx[:,ii] = D.ShiftDataFrame(timeEarthquake,dxEarthquake[:,ii],TimeAnimation)
-        dy[:,ii] = D.ShiftDataFrame(timeEarthquake,dyEarthquake[:,ii],TimeAnimation)
-    
-
-    # =============================================================================
+    # ========================================================================
     # Initialize Plots
-    # =============================================================================
+    # ========================================================================
     
     #Create figure and axis object
-    [fig,ax] = plt.subplots(facecolor='black')
+    [fig,ax] = plt.subplots(facecolor='black', figsize = (xbound,ybound))
+    # fig.figsize((xbound,ybound))
     ax = plt.subplot(111,frameon=False)
+    # ax = plt.subplot(frameon=False)
     
     # Initialize plots - this might not be necessary
     PlotNodes, = plt.plot([0], [np.sin(0)], 'b')
     PlotElement, = plt.plot([0], [np.sin(0)], 'b')
     
-    # Get bounds
-    xmax = max(abs(x0))
-    ymax = max(abs(y0))
-    MaxValue = max(xmax,ymax)
-    
-    #Normalized y
-    ybound = ymax*(ymax/MaxValue)
-    xbound = xmax*(xmax/MaxValue)
+
     
     #ax.x_lim()
-    ax.set_ylim(0,MaxValue)
-    ax.set_xlim(-MaxValue,MaxValue)
+    ax.set_ylim(ymin,ymax)
+    ax.set_xlim(xmin,xmax)
+    
+    # Add Text
+    time_text = ax.text(0.95, 0.01, '', verticalalignment='bottom', 
+                        horizontalalignment='right', transform=ax.transAxes,color='white')
     
     PlotElements = []
     # plot elements
@@ -589,7 +764,7 @@ def ChonkyEQAnimation(DispFileName,NodeFileName,ElementFileName,
     
     # If the interval is zero
     if FrameInterval == 0:
-        FrameInterval = dtFrames*1000
+        FrameInterval = dtFrames*1000/timeScale
     else: 
         pass
 
@@ -624,6 +799,10 @@ def ChonkyEQAnimation(DispFileName,NodeFileName,ElementFileName,
             # Draw Line Between nodes    
             PlotElements[jj].set_xdata(tempx)
             PlotElements[jj].set_ydata(tempy)
+        
+        # update Text
+        time_text.set_text(round(dtFrames*ii,1))
+            
         return NodePlot, PlotElements
     
     steps = np.arange(0,Ntime)
@@ -634,17 +813,11 @@ def ChonkyEQAnimation(DispFileName,NodeFileName,ElementFileName,
     return ani
 
 
-def EQAnimation(DispFileName,NodeFileName,ElementFileName, Scale = 2, fps = 24, 
-                FrameInterval = 0, skipFrame =1):
-    import DataFunctions as D
-    EqDispAll = GetAllDisp(DispFileName)
-    
-    
-
 
 def intializePlot(x0, y0, Node_Labels, xy_labels, Elements):
     """
-    This functions creates a plot background with a specific style.
+    This functions creates a plot background with a specific style. It's mainly
+    used by the animation functions, and not users.
 
     Parameters
     ----------
@@ -678,9 +851,9 @@ def intializePlot(x0, y0, Node_Labels, xy_labels, Elements):
     ymax = max(abs(y0))
     MaxValue = 1.1*max(xmax,ymax)
     
-    #Normalized y
-    ybound = ymax*(ymax/MaxValue)
-    xbound = xmax*(xmax/MaxValue)
+    # #Normalized y
+    # ybound = ymax*(ymax/MaxValue)
+    # xbound = xmax*(xmax/MaxValue)
     
     #Create figure and axis object
     [fig,ax] = plt.subplots(facecolor='lightgrey')
@@ -722,7 +895,7 @@ def GetNodesAndElements(NodeFileName, ElementFileName):
     
     # read the files using numpy
     NodeCoords = np.loadtxt(NodeFileName, delimiter=',')
-    Elements = np.loadtxt(ElementFileName, delimiter=',')
+    # Elements = np.loadtxt(ElementFileName, delimiter=',')
     
     # names of each node
     Node_Labels = NodeCoords[:, 0]
@@ -762,7 +935,7 @@ def GetAllDisp(DispFileName):
 
 
 
-def PlotDisp(DispFileName,NodeFileName,ElementFileName, Scale = 1, loadStep = -1):
+def PlotDisp2D(DispFileName,NodeFileName,ElementFileName, Scale = 1, loadStep = -1):
     """
     This function plots reads data from input files then displays the displacement 
     displacement state of an object. Rotations are not included.
@@ -791,7 +964,7 @@ def PlotDisp(DispFileName,NodeFileName,ElementFileName, Scale = 1, loadStep = -1
     
     # TODO: add more flexible inputs
     # Some users don't use files to store data.
-    # inputs could be a file name, or a series of vectors.
+    # inputs would could be a file name, or a series of vectors.
     
     
     # read the files using numpy
@@ -890,4 +1063,197 @@ def PlotFiberResponse(FiberName):
     # Get Fiber Locations
     # Get stresses
     # Get Stiffness
+
+
+# =============================================================================
+# Depriciated stuff
+# =============================================================================
+
+
+
+
+
+
+
+
+def ChonkyEQAnimation(DispFileName, NodeFileName, ElementFileName, 
+              Scale = 2, fps = 24, FrameInterval = 0, skipFrame =1):
+    
+    """
+    This function animates an earthquake, given a set of input files.
+    
+    It's chonky because it has to re-process the data every time. It would 
+    be better to have one function that process the data, and another that
+    plots the data.
+    
+    """
+    
+    import openseesplt.DataFunctions as D
+    
+    # It's chonky because it has to re-process the data every time. It would 
+    # be better to have one function that process the data, and another that
+    # plots the data
+    
+    
+    # =============================================================================
+    # Get the data
+    # =============================================================================
+    
+    # Scale on displacement
+
+    
+    # Create the directory names and import the necessary file(s)
+    BaseDirectory = os.getcwd()
+    
+    # Get Displacement file Names
+    DisplacementDirectory = "%s\%s" % (BaseDirectory, DispFileName)
+    NodeDirectory = "%s\%s" % (BaseDirectory, NodeFileName)
+    ElementDirectory = "%s\%s" % (BaseDirectory, ElementFileName)
+    
+    # read the files using numpy
+    DisplacementData = np.loadtxt(DisplacementDirectory,dtype ='float32', delimiter=' ',)
+    NodeCoords = np.loadtxt(NodeDirectory, delimiter=',')
+    Elements = np.loadtxt(ElementDirectory, delimiter=',')
+    
+    
+    # Get vectors of time data and base x and y locations
+    # x0 and y0 are vectors with n columns, where n is the number of nodes
+    timeEarthquake = DisplacementData[:, 0]
+    
+    # names of each node
+    Node_Labels = NodeCoords[:, 0]
+    
+    # Starting position of each node
+    x0 = NodeCoords[:, 1]
+    y0 = NodeCoords[:, 2]
+    
+    # Amount of each node
+    N_nodes = len(x0)
+    
+    # This will need to be changed based on the amount of elements
+    N_ele = len(Elements)
+    # N_Time = len(timeEarthquake)
+    
+    # Create mapping of x and y node values to their labels
+    xy_labels = {}
+    for ii in range(N_nodes):
+        xy_labels[Node_Labels[ii]] = [x0[ii], y0[ii]]
+    
+    # Organize displacement data
+    dxEarthquake = DisplacementData[:, 1::3]
+    dyEarthquake = DisplacementData[:, 2::3]
+    
+    # Plot structure
+    ## this could possibly be a function
+    
+    # Create variables to store
+    dtFrames = 1 / fps
+    Tmax = np.max(timeEarthquake)
+    Tmin = np.min(timeEarthquake)
+    TimeAnimation = np.arange(Tmin,Tmax,dtFrames)
+    Ntime = len(TimeAnimation)
+    
+    dx = np.zeros([Ntime,N_nodes])
+    dy = np.zeros([Ntime,N_nodes])
+    
+    # Shift the data into a common frame.
+    for ii in range(N_nodes):
+        dx[:,ii] = D.ShiftDataFrame(timeEarthquake,dxEarthquake[:,ii],TimeAnimation)
+        dy[:,ii] = D.ShiftDataFrame(timeEarthquake,dyEarthquake[:,ii],TimeAnimation)
+    
+
+    # =============================================================================
+    # Initialize Plots
+    # =============================================================================
+    
+    #Create figure and axis object
+    [fig,ax] = plt.subplots(facecolor='black')
+    ax = plt.subplot(111,frameon=False)
+    
+    # Initialize plots - this might not be necessary
+    PlotNodes, = plt.plot([0], [np.sin(0)], 'b')
+    PlotElement, = plt.plot([0], [np.sin(0)], 'b')
+    
+    # Get bounds
+    xmax = max(abs(x0))
+    ymax = max(abs(y0))
+    MaxValue = max(xmax,ymax)
+    
+    # #Normalized y
+    # ybound = ymax*(ymax/MaxValue)
+    # xbound = xmax*(xmax/MaxValue)
+    
+    #ax.x_lim()
+    ax.set_ylim(0,MaxValue)
+    ax.set_xlim(-MaxValue,MaxValue)
+    
+    PlotElements = []
+    # plot elements
+    for ii in range(N_ele):
+        TempNodes = [Elements[ii, 1], Elements[ii, 2]]
+        Ncord1 = xy_labels[TempNodes[0]]
+        Ncord2 = xy_labels[TempNodes[1]]
+        x_cords = [Ncord1[0], Ncord2[0]]
+        y_cords = [Ncord1[1], Ncord2[1]]
+        PlotElement, = plt.plot(x_cords, y_cords, 'w')
+        PlotElements.append(PlotElement)
+    
+    # plot nodes
+    NodePlot, = ax.plot(x0, y0, 'r.', linewidth=0, label=Node_Labels)
+    
+    # If the interval is zero
+    if FrameInterval == 0:
+        FrameInterval = dtFrames*1000
+    else: 
+        pass
+
+    
+    # =============================================================================
+    # Animation
+    # =============================================================================
+    
+    def animate(ii):
+        
+        print(ii)
+        
+        # Update Plots
+        x = x0 + Scale*dx[ii,:]
+        y = y0 + Scale*dy[ii,:]
+        
+        NodePlot.set_xdata(x) 
+        NodePlot.set_ydata(y) 
+        
+        # factor database
+        xy_labels = {}
+        for jj in range(N_nodes):
+            xy_labels[Node_Labels[jj]] = [x[jj], y[jj]]
+        
+        for jj in range(N_ele):
+            # Get the node number for the first and second node connected by the element
+            TempNodes = np.array([Elements[jj,1] , Elements[jj,2]])
+            # Get the coordinants associated with each node
+            Ncord1 = xy_labels[TempNodes[0]]
+            Ncord2 = xy_labels[TempNodes[1]]
+            
+            tempx = [Ncord1[0], Ncord2[0]]
+            tempy = [Ncord1[1], Ncord2[1]]
+            # Draw Line Between nodes    
+            PlotElements[jj].set_xdata(tempx)
+            PlotElements[jj].set_ydata(tempy)
+        return NodePlot, PlotElements
+    steps = np.arange(0,Ntime)
+    print(steps)
+    
+    # dtFrames
+    #ani = animation.FuncAnimation(fig, animate, steps, interval=50,blit=True, repeat=True)
+    ani = animation.FuncAnimation(fig, animate, steps, interval = FrameInterval)
+    # ani = animation.FuncAnimation(fig, animate, steps, interval = 1, repeat=True)
+    
+    return ani
+
+
+
+
+
+
 

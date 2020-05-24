@@ -11,9 +11,12 @@ from scipy.signal import find_peaks
 
 
 
-def SampleCyclicData(ExperimentX, ExperimentY,AnalysisX,AnalysisY,
-                     Nsample = 10, peakDist = 2):
+def SampleCyclicData(ExperimentX, ExperimentY, AnalysisX, AnalysisY,
+                     Nsample = 10, peakDist = 2, peakwidth = None):
     """
+    
+    TODO: Consider renaming to "SampleData"
+    
     This functions samples two data sets that undergo a cyclic. The function 
     automatically detects reversals in the data. Adjustments may be necessary
     to the tolerance of 
@@ -45,8 +48,8 @@ def SampleCyclicData(ExperimentX, ExperimentY,AnalysisX,AnalysisY,
        
     # We get the indicies where the reversal happens.
     
-    ExperimentIndicies = GetCycleIndicies(ExperimentX, ExperimentY, Nsample, peakDist)
-    AnalysisIndicies = GetCycleIndicies(AnalysisX, AnalysisY, Nsample, peakDist)
+    ExperimentIndicies = GetCycleIndicies(ExperimentX, ExperimentY, Nsample, peakDist, peakwidth)
+    AnalysisIndicies = GetCycleIndicies(AnalysisX, AnalysisY, Nsample, peakDist, peakwidth)
     
     # We check that both curves have the same number of indicies
     NIndex = len(ExperimentIndicies) - 1
@@ -78,9 +81,11 @@ def SampleCyclicData(ExperimentX, ExperimentY,AnalysisX,AnalysisY,
     return Rnet
 
 
-def SampleMonotonicData(ExperimentX, ExperimentY,AnalysisX,AnalysisY,
+def SampleMonotonicData(ExperimentX, ExperimentY, AnalysisX, AnalysisY,
                         Nsample = 10):
     """
+    This functions works the same way as the cyclic data function
+    
     This functions samples two data sets of data and returns a 
     
     The Experiment and Analysis must have the same number of cycles
@@ -123,8 +128,7 @@ def SampleMonotonicData(ExperimentX, ExperimentY,AnalysisX,AnalysisY,
     return Rnet
 
 
-
-def GetCycleSubVector(VectorX,VectorY,Index1,Index2,Nsample):
+def GetCycleSubVector(VectorX, VectorY, Index1, Index2, Nsample):
     """
     
     This function takes a input x y curve, then returns a linearlized curve
@@ -136,13 +140,13 @@ def GetCycleSubVector(VectorX,VectorY,Index1,Index2,Nsample):
     ----------
     VectorX : Array
         The input X vector.
-    VectorY : TYPE
+    VectorY : Array
         The input Y vector.
-    Index1 : TYPE
+    Index1 : int
         The first index we want to calculate values between.
-    Index2 : TYPE
+    Index2 : int
         The second index we want to calculate values between.
-    Nsample : TYPE
+    Nsample : int
         The desired number of data points between the two vectors.
 
     Returns
@@ -164,11 +168,13 @@ def GetCycleSubVector(VectorX,VectorY,Index1,Index2,Nsample):
     ySample = ShiftDataFrame(TempDataX,TempDataY,xSample)
         
     return xSample,ySample
+        
     
-    
-    
-def GetCycleIndicies(VectorX,VectorY,CreatePlot='n', peakDist = 2):
+def GetCycleIndicies(VectorX, VectorY = [], CreatePlot = False, peakDist = 2, 
+                     peakWidth = None, peakProminence = None):
     """
+    This function finds the index where there is areversal in the XY data. 
+    You may need to adjust the find peaks factor to get satisfactory results.
     
 
     Parameters
@@ -176,49 +182,85 @@ def GetCycleIndicies(VectorX,VectorY,CreatePlot='n', peakDist = 2):
     VectorX : 1D array
         Input X Vector.
     VectorY : 1D array
-        Input Y Vector.
-    CreatePlot : TYPE, optional
-        DESCRIPTION. The default is 'n'.
+        Input Y Vector. This is only used if we want to plot the values.
+    CreatePlot : Boolean
+        This switch specifies whether or not to display the output.plot
     peakDist : TYPE, optional
-        DESCRIPTION. The default is 2.
+        The sampling distance used to find peaks. The default is 2.
 
     Returns
     -------
-    Indexes : TYPE
-        DESCRIPTION.
+    Indexes : Arrays
+        Returns the arrays at which reversals occur.
 
     """
     
     
     
+    # We find the intermediate peak values
+    # We use height = 0 to select only positive or negative peaks.
+    MaxIndex,_ = find_peaks(VectorX, height = 0, distance = peakDist, 
+                            width = peakWidth, prominence = peakProminence)
     
-    
-    MaxIndex,_ = find_peaks(VectorX, height = 0, distance = peakDist)
-    MinIndex,_ = find_peaks(-VectorX, height = 0, distance = peakDist)
-    
-    # MaxValueXpos = VectorX[MaxIndex]
-    # MaxValueYpos = VectorY[MaxIndex]
-    
-    # MaxValueXneg = VectorX[MinIndex]
-    # MaxValueYneg = VectorY[MinIndex]
-    
-    Nindex = len(MaxIndex) + len(MinIndex) 
+    MinIndex,_ = find_peaks(-VectorX, height = 0, distance = peakDist, 
+                            width = peakWidth, prominence = peakProminence)    
+        
+    # We store define an array that will later be used to store the
+    # the max and min values in an array of indexes
+    Nindex = len(MaxIndex) + len(MinIndex) + 2
     Indexes = np.zeros(Nindex, dtype = int)
     
-    if MinIndex[0] < MaxIndex[0]:
-        Indexes[0::2] = MinIndex
-        Indexes[1::2] = MaxIndex
-    else:
-        Indexes[0::2] = MaxIndex
-        Indexes[1::2] = MinIndex
     
-    if CreatePlot == 'y':
+    # # If no value was found, we assume monotonic
+    # if not MaxIndex: 
+    #     print('No local peaks were found, assuming x data is monotonic.')
+    #     Nindex = 2
+    #     MinIndex = [0]
+    #     MaxIndex = [len(VectorX) - 1]
+    #     Indexes = np.zeros(Nindex, dtype = int)
+
+
+    # Define first and last point
+    Indexes[0] = 0
+    Indexes[-1] = len(VectorX) - 1
+    
+    # if only one point exists
+    
+    L1 = len(MinIndex)
+    L2 = len(MaxIndex)
+    
+    # We check the order, starting with the minimum number of possibilities
+    # if there are no minimus, order doesn't matter
+    if L1 == 0 and L2 == 0:
+        order = 1
+    elif L1 == 0:
+        order = 2
+    elif L2 == 0:
+        order = 1
+    elif MinIndex[0] < MaxIndex[0]:
+        order = 1
+    else:
+        order = 2
+    
+    # We assign the order. We also check if there are any entries to assign.
+    if order == 1:
+        Indexes[1:-1:2] = MinIndex
+        if L2 !=0:
+            Indexes[2:-1:2] = MaxIndex
+    else:
+        Indexes[1:-1:2] = MaxIndex
+        if L1 !=0:
+            Indexes[2:-1:2] = MinIndex
+    
+    # make a picture if it is true
+    if CreatePlot == True:
         # MaxValueXpos = VectorX[MaxIndex]
         # MaxValueYpos = VectorY[MaxIndex]
 
         # MaxValueXneg = VectorX[MinIndex]
         # MaxValueYneg = VectorY[MinIndex]
-        
+        if VectorY == []:
+            VectorY = VectorX
         
         MaxValueXValue = VectorX[Indexes]
         MaxValueYValue = VectorY[Indexes]        
@@ -229,13 +271,14 @@ def GetCycleIndicies(VectorX,VectorY,CreatePlot='n', peakDist = 2):
         # line  = plt.plot(MinIndex,MaxValueYneg,'x')
         
         line2  = plt.plot(VectorY[:])
+        plt.title('Peak Indexes')
         plt.show()
         
         
         fig = plt.subplots()        
         line2  = plt.plot(VectorX,VectorY)
         line  = plt.plot(MaxValueXValue,MaxValueYValue,'x')
-
+        plt.title('Peak Index x values')
         plt.show()
         
     
@@ -243,11 +286,14 @@ def GetCycleIndicies(VectorX,VectorY,CreatePlot='n', peakDist = 2):
     return Indexes
 
 
-
-
-
-def LinearInterpolation(x1,x2,y1,y2,x):
-    y = ((y2-y1)/(x2-x1))*(x-x1) + y1
+def LinearInterpolation(x1, x2, y1, y2, x):
+    dx = (x2 - x1)
+    if dx == 0:
+        print('x1 and x2 are the same, using y1')
+        y = y1
+    else:
+        y = ((y2 - y1) / (dx))*(x - x1) + y1
+    
     return y
 
 
@@ -276,17 +322,17 @@ def ShiftDataFrame(Samplex, Sampley, Targetx):
     # We will need to break if 
     Parameters
     ----------
-    Samplex : TYPE
-        DESCRIPTION.
-    Sampley : TYPE
-        DESCRIPTION.
-    Targetx : TYPE
-        DESCRIPTION.
+    Samplex : Array 1d.
+        The x values for the sample curves we want to shift into.
+    Sampley : Array 1d.
+        The y values for the sample curves we want to shift into.
+    Targetx : Array 1d.
+        The X vector we want to shift the target into.
 
     Returns
     -------
-    Targety : TYPE
-        DESCRIPTION.
+    Targety : Array 1d.
+        The Y vector we shifted  the target into.
 
     """
     
