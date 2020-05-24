@@ -42,13 +42,6 @@ opp.AnimateXY(x,y, fps = 24, rFactor = 2, outputFrames = 48)
 # Animate a pair of curves
 # =============================================================================
 
-# Testcase - one cycle of x, two cycles going to max and returning,
-# two cycles going to min and returning, Three cycles max, min, max
-# Three cycles min max in
-
-# Some noisey x values?
-
-
 # Create a vector with some noise.
 permutate = np.random.normal(0,1,npoints)/4
 Ynoise = y + permutate
