@@ -14,8 +14,8 @@ These functions allow users to compare xy curves.
 """
 
 import numpy as np
-import openseesplt.openseesplt as opp
-import openseesplt.DataFunctions as df
+import openseespytools.openseesplt as opp
+import openseespytools.DataFunctions as df
 import matplotlib.pyplot as plt
 import scipy
 
