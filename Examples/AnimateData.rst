@@ -10,7 +10,7 @@ The following code showcases the animation of two curves:
 .. code:: python
 
   import numpy as np
-  import openseesplt.openseesplt as opp
+  import openseespytools.openseesplt as opp
   npoints = 1000
   
   x = np.linspace(0,2*np.pi,npoints)
