@@ -1,5 +1,6 @@
-# OpenseesPyPostprocessing
-This library provides data processing tool and animation tools for opensees.
+# OpenseesPyTools
+This library provides data processing tool and animation tools for opensees. 
+The package is pip-installable with the command "pip install openseespytools".
 
 Notably, the earthquake plotting functions and animation functions are currently limited to models in 2D, that use 1D elements 
 (i.e. trusses, beams, ZLE, etc.).
