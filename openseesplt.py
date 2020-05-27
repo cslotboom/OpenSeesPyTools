@@ -17,7 +17,7 @@ import matplotlib.pyplot as plt
 import matplotlib.pyplot as pl
 import matplotlib.animation as animation
 
-import openseesplt.DataFunctions as df
+import openseespytools.DataFunctions as df
 # import openseesplt.StyleSheet
 import os
 
