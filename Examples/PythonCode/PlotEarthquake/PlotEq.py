@@ -8,7 +8,7 @@ Created on Fri May 31 22:48:25 2019
 # Imports
 # =============================================================================
 
-import openseesplt.openseesplt as opp
+import openseespytools.openseesplt as opp
 import numpy as np
 
 # =============================================================================
