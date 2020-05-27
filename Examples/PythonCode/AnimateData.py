@@ -16,7 +16,7 @@ in a seperate window. The animations will not work otherwise.
 """
 
 import numpy as np
-import openseesplt.openseesplt as opp
+import openseespytools.openseesplt as opp
 import matplotlib.pyplot as plt
 import scipy
 
