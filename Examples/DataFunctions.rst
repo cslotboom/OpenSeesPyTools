@@ -14,7 +14,7 @@ If your data is noisey, you may want to skip some sub-peaks and only find big re
 
 .. code:: python
 
-  import openseesplt.DataFunctions as df
+  import openseespytools.DataFunctions as df
   
   # We define a vector that has three cycle changes directions three times
   x1 = np.linspace(0,1,21)
