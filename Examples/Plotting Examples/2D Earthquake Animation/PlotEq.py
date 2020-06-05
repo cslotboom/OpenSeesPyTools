@@ -8,7 +8,7 @@ Created on Fri May 31 22:48:25 2019
 # Imports
 # =============================================================================
 
-import openseespytools_working.model as opm
+import openseespytools.model as opm
 
 import numpy as np
 
