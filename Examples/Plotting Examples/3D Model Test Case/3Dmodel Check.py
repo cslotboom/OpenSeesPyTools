@@ -1,5 +1,5 @@
 import openseespy.opensees as op
-import openseespytools_working.model as opm
+import openseespytools.model as opm
 import numpy as np
 
 
