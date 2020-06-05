@@ -1,6 +1,6 @@
 import openseespy.opensees as op
 import openseespy.postprocessing.Get_Rendering as opp
-import openseespytools_working.model as opm
+import openseespytools.model as opm
 import numpy as np
 from CustomStlyeSheet import customStyleSheet
 
@@ -13,13 +13,8 @@ op.nDMaterial('ElasticIsotropic',mat1,1.,0.1)
 mat2 = 2
 op.uniaxialMaterial('Elastic',mat2,1.)
 
-linTransform = 1
-# op.geomTransf('Linear', linTransform)
-
-
 nodeCoordsx = np.array([0,1,2,3])*1.
 nodeCoordsy = np.array([0,1])*1.
-
 
 # Element 1D connectivity
 element1D = np.array([[1,1,5], [2,2,6], [3,3,7], [4,4,8], [5,5,6], [6,6,7], 
@@ -71,6 +66,4 @@ for element in element4D:
 # pl.plot_model_basic() 
 opm.plot_active_model(customStyleSheet)
 
-opm.plot_active_model()
-
-# opp.plot_model()                        
+opm.plot_active_model()              
