@@ -4,17 +4,15 @@ Created on Fri May  23rd 22:37:21 2020
 
 @author: Christian
 
-
 ******************************************************************************
 
 These functions allow users to compare xy curves.
-
 
 ******************************************************************************
 """
 
 import numpy as np
-import openseespytools_working.data as opd
+import openseespytools.data as opd
 import matplotlib.pyplot as plt
 import scipy
 
@@ -88,10 +86,6 @@ plt.plot(subvectorx1, subvectory1)
 plt.plot(subvectorx2, subvectory2)
 plt.plot(subvectorx3, subvectory3)
 plt.show()
-
-# GetCycleSubVector(x,y,revesalIndexes[1])
-
-# Subvector1 = revesalIndexes[]
 
 
 # =============================================================================
