@@ -1,4 +1,4 @@
-# OpenseesPyTools
+# OpenSeesPyTools
 This library provides data processing tool and animation tools for opensees. 
 The package is pip-installable with the command "pip install openseespytools".
 
