@@ -16,7 +16,7 @@ in a seperate window. The animations will not work otherwise.
 """
 
 import numpy as np
-import openseespytools_working.response as opr
+import openseespytools.response as opr
 import scipy
 
 # =============================================================================
