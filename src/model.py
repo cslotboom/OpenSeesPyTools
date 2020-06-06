@@ -12,8 +12,8 @@ import numpy as np
 import openseespy.opensees as op
 import os
     
-import openseespytools_working.data as D 
-import openseespytools_working.stylesheets as Style
+import openseespytools.data as D 
+import openseespytools.stylesheets as Style
 
 
 """ The standard displacement file is assumed to have ALL displacements and 

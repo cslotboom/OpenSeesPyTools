@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 import matplotlib.pyplot as pl
 import matplotlib.animation as animation
 
-import data as D
+import openseespytools.data as D
 
 
 def AnimateXYFile(fileName_x, fileName_y='', column_x=1, column_y=1, 
