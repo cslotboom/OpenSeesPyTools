@@ -16,15 +16,22 @@ import openseespytools.data as D
 import openseespytools.stylesheets as Style
 
 
-""" The standard displacement file is assumed to have ALL displacements and 
-Rotations. Only the displacements are necessary.
-
-Define the node and element standard notation.
+""" The standard displacement file is assumed to have ALL displacements no
+rotation.
 
     nodes: 
         The node list in standard format
+	[Node1tag, node1X, node1Y]
+	[Node2tag, node2X, node2Y]
+	
+	[NodeNtag, nodeNX, nodeNY]
+	
+	
     elements: 1D list
         The elements list in standard format.
+	[element1, element2, ... , elementN]
+	where
+	elementi = [elementiTag, elementiNode1, ... , elementiNodeN]
     
 
 """
