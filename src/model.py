@@ -230,9 +230,7 @@ def readNodesandElements(nodeName = 'Nodes', eleName = 'Elements', delim = ',',
 
 def readDisp(DispName = 'All_Disp', outputDir = 'vis',  ftype = '.out', 
              delim = ' ', dtype ='float32'):
-    """
-    Checked!!
-    
+    """   
     This file reads data from a input file, assuming it is in standard format. 
     Standard format for displacement means the xy coordinates, or xyz 
     coordinates for each node is organized as follows:
