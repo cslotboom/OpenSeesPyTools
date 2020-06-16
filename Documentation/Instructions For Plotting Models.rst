@@ -23,7 +23,7 @@ A **recoder** for all of the displacements will also need to be called. The fina
   
   opm.plot_model_disp(Loadstep)
 
-There are many optional arguement that give the user control over the modle functionality.
+There are many optional arguement that give the user control over the 
 
 
 Procedure for Animating Displacements
