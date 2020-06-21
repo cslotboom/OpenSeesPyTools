@@ -8,7 +8,6 @@ import openseespy.opensees as op
 
 import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib.pyplot as pl
 import matplotlib.animation as animation
 from matplotlib.widgets import Slider
 
@@ -294,16 +293,17 @@ def AnimateCyclicXYCurves(Curve1, Curve2, NFrames = 120, fps = 24,
 def PlotFiberResponse(FiberName, LoadStep):
     
     fiberData  = np.loadtxt(FiberName,delimiter=' ')
-    fibreYPosition = fiberData[:,1::5]
-    fibreStress = fiberData[:,4::5]
+    FiberYPosition = fiberData[:,1::5]
+    FiberStress = fiberData[:,4::5]
     
-    fig, = plt.plot(fibreYPosition[LoadStep,:], fibreStress[LoadStep,:])
+    fig, ax = plt.subplots()
+    line = plt.plot(FiberYPosition[LoadStep,:], FiberStress[LoadStep,:])
     
-    pass
+    return fig, ax
 
 
 
-def AnimateFibre2D(fibreYPosition, fibreResponse, skipStart = 0, skipEnd = 0, rFactor=1, 
+def Animatefiber2D(fiberYPosition, fiberResponse, skipStart = 0, skipEnd = 0, rFactor=1, 
            outputFrames=0, fps = 24, Xbound = [],Ybound = []):
     """
     Parameters
@@ -336,33 +336,33 @@ def AnimateFibre2D(fibreYPosition, fibreResponse, skipStart = 0, skipEnd = 0, rF
     """
 
     # Check if the x and y data are of the same length, if not raise a error.
-    if len(fibreYPosition) != len(fibreResponse):
+    if len(fiberYPosition) != len(fiberResponse):
         raise Exception('Lengths of input vectors unequal')
     
     # If end data is not being skipped, use the full vector length.
     if skipEnd ==0:
-        skipEnd = len(fibreYPosition)
+        skipEnd = len(fiberYPosition)
     
     
     # Set up bounds based on data from 
     if Xbound == []:
-        xmin = 1.1*np.min(fibreYPosition)
-        xmax = 1.1*np.max(fibreYPosition)
+        xmin = 1.1*np.min(fiberYPosition)
+        xmax = 1.1*np.max(fiberYPosition)
     else:
         xmin = Xbound[0]       
         xmax = Xbound[1]
     
     if Ybound == []:
-        ymin = 1.1*np.min(fibreResponse)  
-        ymax = 1.1*np.max(fibreResponse)        
+        ymin = 1.1*np.min(fiberResponse)  
+        ymax = 1.1*np.max(fiberResponse)        
     else:
         ymin = Ybound[0]       
         ymax = Ybound[1]          
     
     
     # Remove unecessary data
-    xinputs = fibreYPosition[skipStart:skipEnd, :]
-    yinputs = fibreResponse[skipStart:skipEnd, :]
+    xinputs = fiberYPosition[skipStart:skipEnd, :]
+    yinputs = fiberResponse[skipStart:skipEnd, :]
 
     # Reduce the data if the user specifies
     if rFactor != 1:
@@ -463,14 +463,14 @@ def AnimateFibre2D(fibreYPosition, fibreResponse, skipStart = 0, skipEnd = 0, rF
 
 
 
-def AnimateFibre2DFile(fiberFileName, skipStart = 0, skipEnd = 0, rFactor=1, 
+def AnimateFiber2DFile(fiberFileName, skipStart = 0, skipEnd = 0, rFactor=1, 
            outputFrames=0, fps = 24, Xbound = [],Ybound = []):
     
     fiberData  = np.loadtxt(fiberFileName,delimiter=' ')
-    fibreYPosition = fiberData[:,1::5]
-    fibreStress = fiberData[:,4::5]    
+    fiberYPosition = fiberData[:,1::5]
+    fiberStress = fiberData[:,4::5]    
     
-    ani = AnimateFibre2D(fibreYPosition, fibreStress, skipStart, skipEnd, rFactor, outputFrames, fps, Xbound, Ybound)
+    ani = AnimateFiber2D(fiberYPosition, fiberStress, skipStart, skipEnd, rFactor, outputFrames, fps, Xbound, Ybound)
     
     return ani
     

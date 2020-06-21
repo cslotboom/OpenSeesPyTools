@@ -35,6 +35,10 @@ rotation.
     
 
 """
+#TODO
+# Change the name elements to lines for figure defintion
+
+
 
 def checkNodeConnectivity():
     """
@@ -168,11 +172,17 @@ def saveNodesandElements(nodeName = 'Nodes', eleName = 'Elements',
     # SaveNodes
     np.savetxt(nodeName + ftype, nodes, delimiter = delim, fmt = fmt)
     
+    
+    #TODO 
+    # Don't save empty files!!!
+    
+    elements = [ele2Node, ele3Node, ele4Node, ele8Node]
+    eleLabels = ['_2Node', '_3Node', '_4Node', '_8Node']
+    
     # Save element arrays
-    np.savetxt(eleName + '_2Node' + ftype, ele2Node, delimiter = delim, fmt = fmt)
-    np.savetxt(eleName + '_3Node' + ftype, ele3Node, delimiter = delim, fmt = fmt)
-    np.savetxt(eleName + '_4Node' + ftype, ele4Node, delimiter = delim, fmt = fmt)
-    np.savetxt(eleName + '_8Node' + ftype, ele8Node, delimiter = delim, fmt = fmt)
+    for ii in range(4):
+        if len(elements[ii]) != 0:
+            np.savetxt(eleName + eleLabels[ii] + ftype, ele2Node, delimiter = delim, fmt = fmt)
     
 def readNodesandElements(nodeName = 'Nodes', eleName = 'Elements', delim = ',', 
                          dtype ='float32', ftype = '.out'):
@@ -457,7 +467,11 @@ def getCubeSurf(Nodes, xyz_labels, ax, Style):
     iiNode = xyz_labels[Nodes[4]]
     jjNode = xyz_labels[Nodes[5]]
     kkNode = xyz_labels[Nodes[6]]
-    llNode = xyz_labels[Nodes[7]] 
+    llNode = xyz_labels[Nodes[7]]
+    
+    #TODO test this code
+    # [iNode, jNode, kNode, lNode, iiNode, jjNode, kkNode, llNode,] = [xyz_labels[*Nodes]]
+    
     
     # For the 8D we need to draw 6 surfaces. The outline will be 
     # included in each surface plot - every line is drawn twice
@@ -478,8 +492,8 @@ def getCubeSurf(Nodes, xyz_labels, ax, Style):
 # Plotting function enablers
 # =============================================================================
 
-def update_Plot_Disp(nodes, elements, fig, ax, Style, DisplacementData = [], 
-                     scale = 1,):
+def update_Plot_Disp(nodes, elements, fig, ax, Style, DisplacementData = np.array([]), 
+                     scale = 1):
     """
     This functions plots an image of the model in it's current diplacement
     state. If no displacement data is passed to the funtion, it plots the base
@@ -538,7 +552,7 @@ def update_Plot_Disp(nodes, elements, fig, ax, Style, DisplacementData = [],
     ndm = len(tempCoords[0,:])
             
     # If displacemetns are not asked for, return an appriately sized array.
-    if DisplacementData == []:    DisplacementData = np.zeros([Nnode*ndm + 1])
+    if DisplacementData.size == 0:    DisplacementData = np.zeros([Nnode, ndm])
     
     # Get Plot nodes/elements
     Nele = len(elements)
@@ -553,7 +567,7 @@ def update_Plot_Disp(nodes, elements, fig, ax, Style, DisplacementData = [],
     # For each 8 node surface there are a total of 6 nodes, so we need
     # 5 additional surfaces for each 8Node element.
     figSurfaces = [None]*(Nsurf + Nsurf8Node*5)
-    figElements = [None]*(Nele + Nsurf8Node*5)
+    figLines = [None]*(Nele + Nsurf8Node*5)
     currentSurf = 0
     currentEle = 0
     
@@ -563,8 +577,8 @@ def update_Plot_Disp(nodes, elements, fig, ax, Style, DisplacementData = [],
         x0 = nodes[:, 1]
         y0 = nodes[:, 2]
         
-        dx = DisplacementData[1::ndm]
-        dy = DisplacementData[2::ndm]
+        dx = DisplacementData[:,0]
+        dy = DisplacementData[:,1]
         
         x = x0 + scale*dx
         y = y0 + scale*dy          
@@ -590,10 +604,10 @@ def update_Plot_Disp(nodes, elements, fig, ax, Style, DisplacementData = [],
         
             # Plot element and store object
             if len(TempNodes) == 2:
-                figElements[currentEle], = ax.plot(coords_x, coords_y, 'w', **Style.ele)
+                figLines[currentEle], = ax.plot(coords_x, coords_y, 'w', **Style.ele)
             
             if len(TempNodes) == 3 or len(TempNodes) == 4:
-                figElements[currentEle], = ax.plot(coords_x, coords_y, 'w', **Style.ele_surf_line)
+                figLines[currentEle], = ax.plot(coords_x, coords_y, 'w', **Style.ele_surf_line)
                 [figSurfaces[currentSurf]] = ax.fill(coords_x, coords_y, **Style.ele_surf)
 
                 currentSurf += 1
@@ -626,9 +640,9 @@ def update_Plot_Disp(nodes, elements, fig, ax, Style, DisplacementData = [],
         y0 = nodes[:, 2]
         z0 = nodes[:, 3]
         
-        dx = DisplacementData[1::ndm]
-        dy = DisplacementData[2::ndm]
-        dz = DisplacementData[3::ndm]
+        dx = DisplacementData[:,0]
+        dy = DisplacementData[:,1]
+        dz = DisplacementData[:,2]
         
         x = x0 + scale*dx
         y = y0 + scale*dy          
@@ -656,14 +670,14 @@ def update_Plot_Disp(nodes, elements, fig, ax, Style, DisplacementData = [],
             if len(tempNodes) == 2:
         
                 # Plot element and store object
-                figElements[currentEle], = ax.plot(tempx, tempy, tempz, 'w', **Style.ele)
+                figLines[currentEle], = ax.plot(tempx, tempy, tempz, 'w', **Style.ele)
             
                 currentEle += 1
                 
             if len(tempNodes) == 4:
                 
                 # Plot element and store object
-                figElements[currentEle], = ax.plot(tempx, tempy, tempz, 'w', **Style.ele_surf_line)                
+                figLines[currentEle], = ax.plot(tempx, tempy, tempz, 'w', **Style.ele_surf_line)                
                 
                 tempVertsx = np.array([[tempx[0],tempx[3]], [tempx[1],tempx[2]]])
                 tempVertsy = np.array([[tempy[0],tempy[3]], [tempy[1],tempy[2]]])
@@ -680,7 +694,7 @@ def update_Plot_Disp(nodes, elements, fig, ax, Style, DisplacementData = [],
                 
                 # Store elements and surfaces
                 for jj in range(6):
-                    figElements[currentEle] = tempeles[jj]
+                    figLines[currentEle] = tempeles[jj]
                     figSurfaces[currentSurf] = tempVertices[jj]
                     currentSurf += 1
                     currentEle += 1
@@ -703,7 +717,7 @@ def update_Plot_Disp(nodes, elements, fig, ax, Style, DisplacementData = [],
                                        tag, **Style.node_tags_style) #label elements  
     
 
-    return figNodes, figElements, figSurfaces, figTags
+    return figNodes, figLines, figSurfaces, figTags
 
 def setStandardViewport(fig, ax, Style, nodeCords, ndm, Disp = [], scale = 1):
     """
@@ -732,15 +746,24 @@ def setStandardViewport(fig, ax, Style, nodeCords, ndm, Disp = [], scale = 1):
 
     """
     
+    #TODO
+    # Check if delta ani is a different format than the standard displacement
+    
+    # For the displacement function, the input is a vector
+    
     # Adjust plot area, get the bounds on both x and y
     nodeMins = np.min(nodeCords, 0)
     nodeMaxs = np.max(nodeCords, 0)
     
+    # Get the maximum displacement in each direction
     if Disp != []:
         
-        # Get the maximum displacement in each direction
-        dispmax = np.max(np.abs(Disp), (0,1))*scale
-        
+        # if it's the animation
+        if len(Disp.shape) == 3:
+            dispmax = np.max(np.abs(Disp), (0,1))*scale
+        # if it's regular displacement 
+        else:
+            dispmax = np.max(np.abs(Disp), 0)*scale
         nodeMins = np.min(nodeCords, 0) - dispmax
         nodeMaxs = np.max(nodeCords, 0) + dispmax
 
@@ -829,7 +852,7 @@ def plot_active_model(CustomStyleFunction = None):
     fig, ax = initializeFig(nodes[:,1:], BasicStyle, ndm)
     
     # Plot the first set of data
-    StaticObjects = update_Plot_Disp(nodes, elements, fig, ax, BasicStyle)
+    update_Plot_Disp(nodes, elements, fig, ax, BasicStyle)
      
     # Adjust viewport size
     setStandardViewport(fig, ax, BasicStyle, nodes[:,1:], ndm)
@@ -872,10 +895,20 @@ def plot_model_disp(LoadStep,    scale = 1, dispName = 'All_Disp',
     
     # number of dimensions
     ndm = len(nodes[0,1:])
-      
+    Nnodes = len(nodes[:,0])
+    
     # Get the displacements if there are any.
     Alldisp = readDisp(dispName)
-    disp = Alldisp[LoadStep,:]
+    disp = np.zeros([Nnodes,ndm])
+    
+    
+    #TODO
+    # Consider scaling and resizing the displacement array in the read Disp 
+    # Function. That way it's only done once.
+    
+    for ii in range(ndm):
+        disp[:,ii] = Alldisp[LoadStep, (ii+ 1)::ndm]
+    
     
     # Get Style Sheet for dispaced model
     if CustomDispStyleFunction == None:
@@ -891,18 +924,20 @@ def plot_model_disp(LoadStep,    scale = 1, dispName = 'All_Disp',
         StaticStyle = Style.getStyle(CustomStyleFunction)
     
     # initialize figure
-    fig, ax = initializeFig(nodes[:,1:], DispStyle, ndm)
+    fig, ax = initializeFig(nodes[:,1:] + disp*scale, DispStyle, ndm)
     
     # Plot the first set of data
-    StaticObjects = update_Plot_Disp(nodes, elements, fig, ax, StaticStyle, [], 1)
+    update_Plot_Disp(nodes, elements, fig, ax, StaticStyle)
     
     # Plot the second set of data
-    DispObjects = update_Plot_Disp(nodes, elements, fig, ax, DispStyle,  disp, scale)
+    update_Plot_Disp(nodes, elements, fig, ax, DispStyle,  disp, scale)
 
 	# Adjust plot area.
-    setStandardViewport(fig, ax, DispStyle, nodes[:,1:], ndm)
+    setStandardViewport(fig, ax, DispStyle, nodes[:,1:], ndm, disp*scale)
 	
     plt.show()
+    
+    return fig,  ax
 
 def plot_model_eigen(LoadStep,    scale = 1, dispName = 'All_Disp', 
                     CustomStyleFunction = None, CustomDispStyleFunction = None,
@@ -958,7 +993,7 @@ def plot_model_eigen(LoadStep,    scale = 1, dispName = 'All_Disp',
     fig, ax = initializeFig(nodes[:,1:], DispStyle, ndm)
     
     # Plot the first set of data
-    StaticObjects = update_Plot_Disp(nodes, elements, fig, ax, StaticStyle, [], 1)
+    StaticObjects = update_Plot_Disp(nodes, elements, fig, ax, StaticStyle)
     
     # Plot the second set of data
     DispObjects = update_Plot_Disp(nodes, elements, fig, ax, DispStyle,  disp, scale)
@@ -967,6 +1002,8 @@ def plot_model_eigen(LoadStep,    scale = 1, dispName = 'All_Disp',
     setStandardViewport(fig, ax, DispStyle, nodes[:,1:], ndm)
 	
     plt.show()
+    
+    return fig, ax
 
 def AnimateDisp(dt, deltaAni, nodes, elements, Scale = 1, 
                 fps = 24, FrameInterval = 0, skipFrame =1, timeScale = 1, 
@@ -1098,7 +1135,10 @@ def getDispAnimation(dt, deltaAni, nodes, elements, fig, ax, Style, Scale = 1,
     This function animates an earthquake, given a set of input files.
 
     """
-    print('function start')
+    #TODO
+    # Consider removing dt, it isn't doing much right now.
+    
+
     ndm = len(nodes[0,1:])
     Nnodes = len(nodes[:,0])
     Nele = len(elements)
@@ -1125,7 +1165,8 @@ def getDispAnimation(dt, deltaAni, nodes, elements, fig, ax, Style, Scale = 1,
     # =============================================================================
    
     # Scale on displacement
-    dtFrames  = dt[1]
+    dtInput  = dt[1]
+    dtFrames  = 1/fps
     Ntime = len(dt)
     
     deltaAni = deltaAni*Scale
@@ -1178,8 +1219,8 @@ def getDispAnimation(dt, deltaAni, nodes, elements, fig, ax, Style, Scale = 1,
                 SurfCounter += 1
        
         # update time Text
-        time_text.set_text(round(dtFrames*ii,1))
-        time_text.set_text(str(round(dtFrames*ii,1)) )
+        time_text.set_text(round(dtInput*ii,1))
+        time_text.set_text(str(round(dtInput*ii,1)) )
         
         
         return EqfigNodes, EqfigElements, EqfigSurfaces, EqfigText
@@ -1366,7 +1407,7 @@ def getDispAnimationSlider(dt, deltaAni, nodes, elements, fig, ax, Style, Scale 
 
     """
     
-    print('function start')
+
     ndm = len(nodes[0,1:])
     Nnodes = len(nodes[:,0])
     Nele = len(elements)
@@ -1393,7 +1434,8 @@ def getDispAnimationSlider(dt, deltaAni, nodes, elements, fig, ax, Style, Scale 
     # ========================================================================
    
     # Scale on displacement
-    dtFrames  = dt[1]
+    dtInput  = dt[1]
+    dtFrames  = 1/fps
     Ntime = len(dt)
     Frames = np.arange(0,Ntime)
     
@@ -1475,8 +1517,8 @@ def getDispAnimationSlider(dt, deltaAni, nodes, elements, fig, ax, Style, Scale 
                 SurfCounter += 1
        
         # update time Text
-        time_text.set_text(round(dtFrames*TimeStep,1))
-        time_text.set_text(str(round(dtFrames*TimeStep,1)) )        
+        time_text.set_text(round(TimeStep*dtInput,1))
+        time_text.set_text(str(round(TimeStep*dtInput,1)) )        
         
         # redraw canvas while idle
         fig.canvas.draw_idle()    

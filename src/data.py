@@ -167,7 +167,7 @@ def GetCycleSubVector(VectorX, VectorY, Index1, Index2, Nsample):
     return xSample,ySample
         
     
-def GetCycleIndicies(VectorX, VectorY = [], CreatePlot = False, peakDist = 2, 
+def GetCycleIndicies(VectorX, VectorY = np.array([]), CreatePlot = False, peakDist = 2, 
                      peakWidth = None, peakProminence = None):
     """
     This function finds the index where there is areversal in the XY data. 
@@ -251,12 +251,7 @@ def GetCycleIndicies(VectorX, VectorY = [], CreatePlot = False, peakDist = 2,
     
     # make a picture if it is true
     if CreatePlot == True:
-        # MaxValueXpos = VectorX[MaxIndex]
-        # MaxValueYpos = VectorY[MaxIndex]
-
-        # MaxValueXneg = VectorX[MinIndex]
-        # MaxValueYneg = VectorY[MinIndex]
-        if VectorY == []:
+        if VectorY.size == 0:
             VectorY = VectorX
         
         MaxValueXValue = VectorX[Indexes]
@@ -277,7 +272,6 @@ def GetCycleIndicies(VectorX, VectorY = [], CreatePlot = False, peakDist = 2,
         line  = plt.plot(MaxValueXValue,MaxValueYValue,'x')
         plt.title('Peak Index x values')
         plt.show()
-        
     
     
     return Indexes
