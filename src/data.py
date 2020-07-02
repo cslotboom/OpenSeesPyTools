@@ -11,7 +11,7 @@ from scipy.signal import find_peaks
 
 
 def SampleData(ExperimentX, ExperimentY, AnalysisX, AnalysisY, Nsample = 10, 
-               peakDist = 2, peakwidth = None):
+               peakDist = 2, peakwidth = None, Norm = None):
     """
         
     This functions samples two data sets that undergo a cyclic, or monotonic 
@@ -71,7 +71,10 @@ def SampleData(ExperimentX, ExperimentY, AnalysisX, AnalysisY, Nsample = 10,
         
         # We sample each point on the curve using the difference between the
         # two points
-        R[ii] = np.sum(((Ey-Ay)**2 + (Ex-Ax)**2)**0.5)
+        if Norm == None:
+            R[ii] = np.sum(((Ey-Ay)**2 + (Ex-Ax)**2)**0.5)
+        else:
+            R[ii] = Norm(Ex, Ey, Ay, Ax)
         
     Rnet = np.sum(R)
     
@@ -79,7 +82,7 @@ def SampleData(ExperimentX, ExperimentY, AnalysisX, AnalysisY, Nsample = 10,
 
 
 def SampleMonotonicData(ExperimentX, ExperimentY, AnalysisX, AnalysisY,
-                        Nsample = 10):
+                        Nsample = 10, Norm = None):
     """
     This functions works the same way as the cyclic data function
     
@@ -119,7 +122,10 @@ def SampleMonotonicData(ExperimentX, ExperimentY, AnalysisX, AnalysisY,
         [Ax,Ay] = GetCycleSubVector(AnalysisX , AnalysisY, 0, Nindex, Nsample)
         
         R[ii] = np.sum(((Ey-Ay)**2 + (Ex-Ax)**2)**0.5)
-        
+        if Norm == None:
+            R[ii] = np.sum(((Ey-Ay)**2 + (Ex-Ax)**2)**0.5)
+        else:
+            R[ii] = Norm(Ex, Ey, Ay, Ax)        
     Rnet = np.sum(R)
     
     return Rnet

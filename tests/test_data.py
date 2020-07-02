@@ -222,3 +222,26 @@ def test_sampleData():
     solution =  2.0660527205276886
     assert np.max(np.abs((R2 - solution))) < 10**-8
 
+
+def test_sampleData_norm():
+    # Define some initial vector
+    npoints = 1000
+    x = np.linspace(0, 6, npoints)
+    y = np.sin(x)
+    np.random.seed(19991231)
+    
+    def norm(c1x, c1y, c2x, c2y):
+        R = np.max(np.abs(c1y-c2y))
+        return R
+    
+    # Create two vectors with some noise.
+    permutate = np.random.normal(0, 1, npoints)
+    YnoiseBig = y + permutate / 2
+    YnoiseBig = scipy.signal.savgol_filter(YnoiseBig,53,2)
+        
+    # Here were
+    R2 = opd.SampleData(x,y,x,YnoiseBig,Nsample=20, Norm = norm)
+    
+    solution =  6.279415498198926
+    assert np.max(np.abs((R2 - solution))) < 10**-8
+# test_sampleData_norm()
