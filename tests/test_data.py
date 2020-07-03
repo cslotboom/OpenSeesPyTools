@@ -244,4 +244,3 @@ def test_sampleData_norm():
     
     solution =  6.279415498198926
     assert np.max(np.abs((R2 - solution))) < 10**-8
-# test_sampleData_norm()
