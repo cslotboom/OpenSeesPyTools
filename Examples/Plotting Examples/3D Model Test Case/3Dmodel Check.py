@@ -76,7 +76,6 @@ for element in element8D:
 
     op.element('stdBrick', eleTag, *eleNodes, mat1)
 
-# opp.plot_model()    
-fig, ax = opm.plot_active_model() 
+fig, ax = opm.plot_model() 
 
 
