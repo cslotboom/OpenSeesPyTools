@@ -56,8 +56,7 @@ def BasicStyleSheet():
     style.ele = {'color':'black', 'linewidth':2, 'linestyle':'-'}
 
     # 1D element style for lines in surfaces
-    style.ele_surf = {'color':'blue', 'linewidth':.5, 'linestyle':'--', 
-                  'alpha':.4} 
+    style.ele_surf = {'color':'blue', 'linewidth':.5, 'linestyle':'--', 'alpha':.4} 
 
     # 1D element style for lines in surfaces
     style.ele_surf_line = {'color':'black', 'linewidth':1, 'linestyle':'-', 
@@ -66,15 +65,14 @@ def BasicStyleSheet():
     # 3D element style for lines in 3D elements
     style.ele_solid = {'color':'red', 'linewidth':.5, 'linestyle':'--', 
                    'alpha':.4}     
-    style.ele_solid_line = {'color':'black', 'linewidth':1, 'linestyle':'-', 
-                        'alpha':.4}  
+    style.ele_solid_line = {'color':'black', 'linewidth':1, 'linestyle':'-', 'alpha':.4}  
     
     # style for element text   
     style.ele_tags = True    
     style.ele_tags_style = {'fontsize':8, 'fontweight':'bold', 'color':'darkred'} 
 
-
-    StyleSheet.ele_2D_style = {'color':'g', 'linewidth':1, 'linestyle':'-', 'alpha':.4}    
+    StyleSheet.ele_2D_style = {'color':'g', 'linewidth':1, 'linestyle':'-', 'alpha':.4}
+    
 
     return style
 
@@ -82,6 +80,9 @@ def BasicStyleSheet():
 def StaticStyleSheet():
     
     style = StyleSheet()
+    
+    
+    style.showUndeflected = True
     
     # background colour
     style.bg_colour = 'lightgrey'    

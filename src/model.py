@@ -35,9 +35,6 @@ rotation.
     
 
 """
-#TODO
-# Change the name elements to lines for figure defintion
-
 
 
 def checkNodeConnectivity():
@@ -79,10 +76,6 @@ def checkNodeConnectivity():
            
     return check
 
-# =============================================================================
-# Enabling functions
-# =============================================================================
-
 def getNodesandElements():
     """
     This function returns the nodes and elments for an active model, in a 
@@ -100,7 +93,6 @@ def getNodesandElements():
     elements : Array 
         An list of all elements in. Each entry in the list is it's own'
         [element1, element2,...],   element1 = [element#, node1, node2,...]
-
     """
    
     # Get nodes and elements
@@ -134,146 +126,28 @@ def getNodesandElements():
     
     return nodes, elements
 
-def saveNodesandElements(nodeName = 'Nodes', eleName = 'Elements', 
-                          delim = ',', fmt = '%.5e', ftype = '.out'):
-    """   
-    This file saves the node and element information for the structure. 
-    For each node information is saved in the following format:
-        Nodes:    [NodeID, xcord, ycord] or [NodeID, xcord, ycord, zcord]
-    
-    For elements, the element is saved with the element connectivity. 
-    A different file is created for each type of element
-    each possible element type.
-        Elements: [EleID, eleNode1, eleNode2, ... , eleNodeN]
+def getModeShapeData(modeNumber):
+     
+     # Get nodes and elements
+     nodeList = op.getNodeTags()
+     
+     # Check Number of dimensions and intialize variables
+     ndm = len(op.nodeCoord(nodeList[0]))
+     Nnodes = len(nodeList)
+     modeshape = np.zeros([Nnodes, ndm + 1])
+     
+     for ii, node in enumerate(nodeList):
+         modeshape[ii,0] = node
+         tempData = op.nodeEigenvector(nodeList[ii], modeNumber)
+         modeshape[ii,1:] = tempData[0:ndm]
+ 
+     return modeshape
 
-    Parameters
-    ----------
-    nodeName : str, optional
-        The name of the file to be saved. The default is 'Nodes'.
-    eleName : str, optional
-        The name of the . The default is 'Elements'.
-    delim : str, optional
-        The delimeter for the output file. The default is ','.
-    fmt : str, optional
-        the format of the file to be saved in. The default is '%.5e'.
-
-    """
-    
-
-    # Read noades and elements
-    nodes, elements = getNodesandElements()
-
-    # Sort through the element arrays
-    ele2Node = np.array([ele for ele in elements if len(ele) == 3])
-    ele3Node = np.array([ele for ele in elements if len(ele) == 4])
-    ele4Node = np.array([ele for ele in elements if len(ele) == 5])
-    ele8Node = np.array([ele for ele in elements if len(ele) == 9])
-
-    # SaveNodes
-    np.savetxt(nodeName + ftype, nodes, delimiter = delim, fmt = fmt)
-    
-    
-    #TODO 
-    # Don't save empty files!!!
-    
-    elements = [ele2Node, ele3Node, ele4Node, ele8Node]
-    eleLabels = ['_2Node', '_3Node', '_4Node', '_8Node']
-    
-    # Save element arrays
-    for ii in range(4):
-        if len(elements[ii]) != 0:
-            np.savetxt(eleName + eleLabels[ii] + ftype, ele2Node, delimiter = delim, fmt = fmt)
-    
-def readNodesandElements(nodeName = 'Nodes', eleName = 'Elements', delim = ',', 
-                         dtype ='float32', ftype = '.out'):
-    """   
-    This function reads input node/element information, assuming it is in the 
-    standard format. 
-
-    If outputDir == False, the base directory will be used.    
-    
-    Parameters
-    ----------
-    nodeName : str, optional
-        The base name for the node file. It will be appended to include
-        the file type. The default is 'Nodes.out'.
-    eleName : str, optional
-        The base nae for the element files. The default is 'Elements.out'.
-    delim : str, optional
-        The delimiter for files to be read. The default is ','.
-    dtype : TYPE, optional
-        The data type to read in. The default is 'float32'.
-
-    Returns
-    -------
-    nodes : Array
-        An output vector in standard format
-    elements : List
-        An output Element vector in standard format.
-        elements = [ele1, ele2,..., elen], 
-        ele1 = [element, node 1, node 2, ... , node n]
-
-    """
-        
-    # Load Node information
-    nodes = np.loadtxt(nodeName + ftype, dtype, delimiter = delim)
-       
-    # Define Element tags
-    eleFileNames = [eleName + '_2Node' + ftype, eleName + '_3Node' + ftype,
-                    eleName + '_4Node' + ftype, eleName + '_8Node' + ftype]
-    
-    # Populate an array with the input element information
-    TempEle = [[]]*4
-    for ii, FileName in enumerate(eleFileNames):
-        if os.path.isfile(FileName):
-            TempEle[ii] = np.loadtxt(FileName, dtype,  delimiter = delim)
-
-    # define the final element array
-    elements = [*TempEle[0],*TempEle[1],*TempEle[2],*TempEle[3]]
-
-    # Check if any files were read
-    if elements is []:
-        raise Exception('No files were found!')
+# =============================================================================
+# Enabling functions
+# =============================================================================
 
     
-    return nodes, elements
-
-def readDisp(DispName = 'All_Disp', outputDir = 'vis',  ftype = '.out', 
-             delim = ' ', dtype ='float32'):
-    """
-    Checked!!
-    
-    This file reads data from a input file, assuming it is in standard format. 
-    Standard format for displacement means the xy coordinates, or xyz 
-    coordinates for each node is organized as follows:
-        [node1x, node1y, node2x, node2y,... nodeNx, nodeNy]
-    Each column will contain the displacements over time.
-
-
-    Parameters
-    ----------
-    DispName : str, optional
-        Base name of the Disp file. The default is 'All_Disp'.
-    ftype: str, file extension, optional
-        The file extension name for the input file
-    delim : str, optional
-        delimieter for the name of the Disp file. The default is ' '.
-    dtype : dtype, optional
-        Data type to read in the delimiter. The default is 'float32'.
-
-    Returns
-    -------
-    Disp : TYPE
-        The displacement of each node in the file.
-
-    """
-        
-    # Load the relevant information
-    Disp = np.loadtxt(DispName + ftype, delimiter = delim, dtype = dtype)
-
-    
-    return Disp
-
 def getAnimationDisp(DispFileDir, dtFrames, ndm,  saveFile = True, 
                      outputNameT = 'TimeOut', outputNameX = 'DispOutX', 
                      outputNameY = 'DispOutY', outputNameZ = 'DispOutZ'):
@@ -339,13 +213,7 @@ def getAnimationDisp(DispFileDir, dtFrames, ndm,  saveFile = True,
     timeAni = np.arange(Tmin,Tmax,dtFrames)
     
     Ntime = len(timeAni)
-    
-
-    # if ndm == 2:
-    #     N_nodes = len(DisplacementData[0, 1::ndm])
-    # elif ndm == 3:
-    #     N_nodes = len(DisplacementData[0, 1::ndm])
-        
+           
     N_nodes = len(DisplacementData[0, 1::ndm])
     
     # Define an array that has the xy or xyz information for animation over all time
@@ -388,7 +256,7 @@ def getAnimationDisp(DispFileDir, dtFrames, ndm,  saveFile = True,
     
     return timeAni, deltaAni    
 
-def getSubSurface(NodeList,  ax, Style):
+def _getSubSurface(NodeList,  ax, Style):
     """   
     Creates and returns the sub-surface objects for a node list.
     The input list of nodes corespond the the vertices of a quadralateral 
@@ -427,10 +295,9 @@ def getSubSurface(NodeList,  ax, Style):
     tempLine, = ax.plot(tempx, tempy, tempz, 'w', **Style.ele_solid_line)
     tempSurface = ax.plot_surface(tempSurfacex, tempSurfacey, tempSurfacez, **Style.ele_solid)
 
-
     return tempLine, tempSurface
 
-def getCubeSurf(Nodes, xyz_labels, ax, Style):
+def _getCubeSurf(Nodes, xyz_labels, ax, Style):
     """
     This functions plots the nodes and surfaces for a 8 node element, and 
     returns the objects
@@ -454,8 +321,6 @@ def getCubeSurf(Nodes, xyz_labels, ax, Style):
 
 
     """
-    
-    # 
     tempLines = 6*[None]
     tempSurfaces = 6*[None]
 
@@ -478,12 +343,12 @@ def getCubeSurf(Nodes, xyz_labels, ax, Style):
     # as a result. There probably is a better way.
     
     # get the lines and surfaces for our element
-    [tempLines[0], tempSurfaces[0]] = getSubSurface([iNode, jNode, kNode, lNode],  ax, Style)
-    [tempLines[1], tempSurfaces[1]] = getSubSurface([iNode, jNode, jjNode, iiNode],  ax, Style)
-    [tempLines[2], tempSurfaces[2]] = getSubSurface([iiNode, jjNode, kkNode, llNode],  ax, Style)
-    [tempLines[3], tempSurfaces[3]] = getSubSurface([lNode, kNode, kkNode, llNode],  ax, Style)
-    [tempLines[4], tempSurfaces[4]] = getSubSurface([jNode, kNode, kkNode, jjNode],  ax, Style)
-    [tempLines[5], tempSurfaces[5]] = getSubSurface([iNode, lNode, llNode, iiNode],  ax, Style)
+    [tempLines[0], tempSurfaces[0]] = _getSubSurface([iNode, jNode, kNode, lNode],  ax, Style)
+    [tempLines[1], tempSurfaces[1]] = _getSubSurface([iNode, jNode, jjNode, iiNode],  ax, Style)
+    [tempLines[2], tempSurfaces[2]] = _getSubSurface([iiNode, jjNode, kkNode, llNode],  ax, Style)
+    [tempLines[3], tempSurfaces[3]] = _getSubSurface([lNode, kNode, kkNode, llNode],  ax, Style)
+    [tempLines[4], tempSurfaces[4]] = _getSubSurface([jNode, kNode, kkNode, jjNode],  ax, Style)
+    [tempLines[5], tempSurfaces[5]] = _getSubSurface([iNode, lNode, llNode, iiNode],  ax, Style)
 
         
     return tempLines, tempSurfaces
@@ -492,8 +357,10 @@ def getCubeSurf(Nodes, xyz_labels, ax, Style):
 # Plotting function enablers
 # =============================================================================
 
-def update_Plot_Disp(nodes, elements, fig, ax, Style, DisplacementData = np.array([]), 
-                     scale = 1):
+#TODO remove scale, scale should be applied before the update function
+
+
+def _update_Plot_Disp(nodes, elements, fig, ax, Style, DisplacementData = np.array([])):
     """
     This functions plots an image of the model in it's current diplacement
     state. If no displacement data is passed to the funtion, it plots the base
@@ -552,7 +419,8 @@ def update_Plot_Disp(nodes, elements, fig, ax, Style, DisplacementData = np.arra
     ndm = len(tempCoords[0,:])
             
     # If displacemetns are not asked for, return an appriately sized array.
-    if DisplacementData.size == 0:    DisplacementData = np.zeros([Nnode, ndm])
+    if DisplacementData.size == 0:    
+        DisplacementData = np.zeros([Nnode, ndm])
     
     # Get Plot nodes/elements
     Nele = len(elements)
@@ -573,15 +441,9 @@ def update_Plot_Disp(nodes, elements, fig, ax, Style, DisplacementData = np.arra
     
     # Plot the 2D
     if ndm == 2:
-        
-        x0 = nodes[:, 1]
-        y0 = nodes[:, 2]
-        
-        dx = DisplacementData[:,0]
-        dy = DisplacementData[:,1]
-        
-        x = x0 + scale*dx
-        y = y0 + scale*dy          
+               
+        x = nodes[:, 1] + DisplacementData[:,0]
+        y = nodes[:, 2] + DisplacementData[:,1]          
         
         # xy label database for the current displacement
         xy_labels = {}
@@ -635,18 +497,10 @@ def update_Plot_Disp(nodes, elements, fig, ax, Style, DisplacementData = np.arra
         
         # In 3D we need to unpack the element array
         elements = [*elements]
-               
-        x0 = nodes[:, 1]
-        y0 = nodes[:, 2]
-        z0 = nodes[:, 3]
-        
-        dx = DisplacementData[:,0]
-        dy = DisplacementData[:,1]
-        dz = DisplacementData[:,2]
-        
-        x = x0 + scale*dx
-        y = y0 + scale*dy          
-        z = z0 + scale*dz          
+                       
+        x = nodes[:, 1] + DisplacementData[:,0]
+        y = nodes[:, 2] + DisplacementData[:,1]      
+        z = nodes[:, 3] + DisplacementData[:,2]           
         
         # xyz label database for the current displacement
         xyz_labels = {}
@@ -690,7 +544,7 @@ def update_Plot_Disp(nodes, elements, fig, ax, Style, DisplacementData = np.arra
                 
             if len(tempNodes) == 8:
                 
-                [tempeles, tempVertices] = getCubeSurf(tempNodes, xyz_labels, ax, Style)
+                [tempeles, tempVertices] = _getCubeSurf(tempNodes, xyz_labels, ax, Style)
                 
                 # Store elements and surfaces
                 for jj in range(6):
@@ -719,7 +573,7 @@ def update_Plot_Disp(nodes, elements, fig, ax, Style, DisplacementData = np.arra
 
     return figNodes, figLines, figSurfaces, figTags
 
-def setStandardViewport(fig, ax, Style, nodeCords, ndm, Disp = [], scale = 1):
+def _setStandardViewport(fig, ax, Style, nodeCords, ndm, Disp = [], scale = 1):
     """
     This function sets the standard viewport size of a function, using the
     nodes as an input.
@@ -793,7 +647,7 @@ def setStandardViewport(fig, ax, Style, nodeCords, ndm, Disp = [], scale = 1):
     
     return fig, ax
 
-def initializeFig(nodeCords,Style,ndm):
+def _initializeFig(nodeCords,Style,ndm):
     
     # set the maximum figure size
     maxFigSize = 8
@@ -819,12 +673,53 @@ def initializeFig(nodeCords,Style,ndm):
     
     return fig, ax
 
-def plot_active_model(CustomStyleFunction = None):
+def _findModelData(OutputDatabase):
+        
+    try:
+        nodes, elements = getNodesandElements()
+    except:
+        Model = False
+        
+    if Model == False:
+        try:
+            nodes, elements = OutputDatabase.readNodesandElements()
+        except:
+            Model = False
+    
+    if Model == False:
+        raise Exception('No model or database found.')
+    
+    return nodes, elements
+
+def _findModeData(OutputDatabase, modeNumber):
+        # Get nodes and elements ( should this be a function?)
+    try:
+        modeshape = getModeShapeData(modeNumber)
+    except:
+        Model = False
+        
+    if Model == False:
+        try:
+            modeshape, = OutputDatabase.readModeShapeData(modeNumber)
+        except:
+            Model = False
+    
+    if Model == False:
+        raise Exception('No model or database found.')
+    
+    return modeshape
+
+
+def plot_model(OutputDatabase = None, CustomStyleFunction = None):
     """
-    Plots an active model.
+    Plots an Model by first looking for an active model, the looking for a model database.
 
     Parameters
     ----------
+    OutputDatabase : Database object, optional
+        The database to be used to plot from. The default is None, where an
+        active model is attempted to be plotted from instead.
+        
     CustomStyleFunction : StyleSheet object, optional
         A custom style sheet to be used. The default is None.
 
@@ -837,35 +732,34 @@ def plot_active_model(CustomStyleFunction = None):
 
     """
     
-    
     # Get Style Sheet
     if CustomStyleFunction == None:
         BasicStyle = Style.getStyle(Style.BasicStyleSheet)
     else:
         BasicStyle = Style.getStyle(CustomStyleFunction)
     
-    # Get nodes and elements
-    nodes, elements = getNodesandElements()
+    # attempt to find data for the model
+    nodes, elements = _findModelData(OutputDatabase)
     ndm = len(nodes[0,1:])        
 
     # Initialize model
-    fig, ax = initializeFig(nodes[:,1:], BasicStyle, ndm)
+    fig, ax = _initializeFig(nodes[:,1:], BasicStyle, ndm)
     
     # Plot the first set of data
-    update_Plot_Disp(nodes, elements, fig, ax, BasicStyle)
+    _update_Plot_Disp(nodes, elements, fig, ax, BasicStyle)
      
     # Adjust viewport size
-    setStandardViewport(fig, ax, BasicStyle, nodes[:,1:], ndm)
+    _setStandardViewport(fig, ax, BasicStyle, nodes[:,1:], ndm)
     
     # Show the plot
     plt.show()
     
     return fig, ax
 
-def plot_model_disp(LoadStep,    scale = 1, dispName = 'All_Disp', 
-                    CustomStyleFunction = None, CustomDispStyleFunction = None,
-                    nodeName = 'Nodes', eleName = 'Elements', delim = ',', 
-                    dtype = 'float32', ftype = '.out'):
+
+def plot_deformedshape(OutputDatabase, tstep = -1,   scale = 1, overlap='no',
+                       CustomStyleFunction = None, CustomDispStyleFunction = None):
+        
     """
     This function plots a the displacement of a model. It's assumed that node
     and element files are saved in the standard format.
@@ -890,32 +784,37 @@ def plot_model_disp(LoadStep,    scale = 1, dispName = 'All_Disp',
 
     """
     
-    # Get nodes and elements
-    nodes, elements = readNodesandElements(nodeName, eleName, delim, dtype, ftype)
+    # attempt to find data for the model
+    nodes, elements = _findModelData(OutputDatabase)
     
     # number of dimensions
     ndm = len(nodes[0,1:])
     Nnodes = len(nodes[:,0])
     
-    # Get the displacements if there are any.
-    Alldisp = readDisp(dispName)
-    disp = np.zeros([Nnodes,ndm])
-    
-    
     #TODO
     # Consider scaling and resizing the displacement array in the read Disp 
     # Function. That way it's only done once.
     
-    for ii in range(ndm):
-        disp[:,ii] = Alldisp[LoadStep, (ii+ 1)::ndm]
+    # Get the displacements if there are any.
+    timeSteps, nodeDisp = OutputDatabase.readNodeDispDatareadDisp()
+    disp = np.zeros([Nnodes,ndm])
     
+    CurrentTimeStep = (np.abs(timeSteps - tstep)).argmin()
+    if timeSteps[-1] < tstep:
+        print("XX Warining: Time-Step has exceeded maximum analysis time step XX")
+		
+    # DeflectedNodeCoordArray = nodeArray[:,1:] + scale*Disp_nodeArray[int(jj),:,:]    
+    
+    
+    # This might no longer be necessary.....
+    for ii in range(ndm):
+        disp[:,ii] = nodeDisp[CurrentTimeStep, (ii+ 1)::ndm]
     
     # Get Style Sheet for dispaced model
     if CustomDispStyleFunction == None:
         DispStyle = Style.getStyle(Style.BasicStyleSheet)
     else:
         DispStyle = Style.getStyle(CustomDispStyleFunction)
-
 
     # Get Style Sheet for dispaced model
     if CustomStyleFunction == None:
@@ -924,25 +823,23 @@ def plot_model_disp(LoadStep,    scale = 1, dispName = 'All_Disp',
         StaticStyle = Style.getStyle(CustomStyleFunction)
     
     # initialize figure
-    fig, ax = initializeFig(nodes[:,1:] + disp*scale, DispStyle, ndm)
+    fig, ax = _initializeFig(nodes[:,1:] + disp*scale, DispStyle, ndm)
     
-    # Plot the first set of data
-    update_Plot_Disp(nodes, elements, fig, ax, StaticStyle)
-    
-    # Plot the second set of data
-    update_Plot_Disp(nodes, elements, fig, ax, DispStyle,  disp, scale)
+    # Plot basemodel if requested, then plot displacement
+    if DispStyle.showUndeflected == True:
+        _update_Plot_Disp(nodes, elements, fig, ax, StaticStyle)
+    _update_Plot_Disp(nodes, elements, fig, ax, DispStyle,  disp, scale)
 
 	# Adjust plot area.
-    setStandardViewport(fig, ax, DispStyle, nodes[:,1:], ndm, disp*scale)
+    _setStandardViewport(fig, ax, DispStyle, nodes[:,1:], ndm, disp*scale)
 	
     plt.show()
     
     return fig,  ax
 
-def plot_model_eigen(LoadStep,    scale = 1, dispName = 'All_Disp', 
-                    CustomStyleFunction = None, CustomDispStyleFunction = None,
-                    nodeName = 'Nodes', eleName = 'Elements', delim = ',', 
-                    dtype = 'float32', ftype = '.out'):
+
+def plot_modeshape(OutputDatabase, modeNumber, scale = 1, overlap='no',
+                   CustomStyleFunction = None, CustomDispStyleFunction = None):
     """
     This function plots a the displacement of a model. It's assumed that node
     and element files are saved in the standard format.
@@ -967,16 +864,13 @@ def plot_model_eigen(LoadStep,    scale = 1, dispName = 'All_Disp',
 
     """
     
-    # Get nodes and elements
-    nodes, elements = readNodesandElements(nodeName, eleName, delim, dtype, ftype)
+    # Error handling for nodes and elements
+    nodes, elements = _findModelData(OutputDatabase)
+    modeshape = _findModeData(OutputDatabase, modeNumber)
     
     # number of dimensions
     ndm = len(nodes[0,1:])
-      
-    # Get the displacements if there are any.
-    Alldisp = readDisp(dispName)
-    disp = Alldisp[LoadStep,:]
-    
+          
     # Get Style Sheet for dispaced model
     if CustomDispStyleFunction == None:
         DispStyle = Style.getStyle(Style.BasicStyleSheet)
@@ -990,106 +884,24 @@ def plot_model_eigen(LoadStep,    scale = 1, dispName = 'All_Disp',
         StaticStyle = Style.getStyle(CustomStyleFunction)
     
     # initialize figure
-    fig, ax = initializeFig(nodes[:,1:], DispStyle, ndm)
+    fig, ax = _initializeFig(nodes[:,1:], DispStyle, ndm)
     
-    # Plot the first set of data
-    StaticObjects = update_Plot_Disp(nodes, elements, fig, ax, StaticStyle)
-    
-    # Plot the second set of data
-    DispObjects = update_Plot_Disp(nodes, elements, fig, ax, DispStyle,  disp, scale)
+    # Plot basemodel if requested, then plot displacement
+    if DispStyle.showUndeflected == True:
+        _update_Plot_Disp(nodes, elements, fig, ax, StaticStyle)
+    _update_Plot_Disp(nodes, elements, fig, ax, DispStyle,  modeshape, scale)
 
 	# Adjust plot area.
-    setStandardViewport(fig, ax, DispStyle, nodes[:,1:], ndm)
+    _setStandardViewport(fig, ax, DispStyle, nodes[:,1:], ndm)
 	
     plt.show()
     
     return fig, ax
 
-def AnimateDisp(dt, deltaAni, nodes, elements, Scale = 1, 
-                fps = 24, FrameInterval = 0, skipFrame =1, timeScale = 1, 
-                CustomStyleFunction = None):
-    """
-    This function animates displacement in "real time". Model information
-    is passed to the function
-    
-    For big models it's unlikely that the animation will actually run at the 
-    desired fps in "real time". Matplotlib just isn't built for high fps 
-    animation.
-    
-
-    Parameters
-    ----------
-    dt : array
-        The input array of times for animation frames.
-    deltaAni : 3D array, [NtimeAni,Nnodes,ndm]
-        The input displacement of each node for all time, in every dimension.
-    nodes : array
-        The input ndoes in standard format:
-            [node1, node1x, node1y]
-            [....., ......, ......]
-            [nodeN, nodeNx, nodeNy]
-        The default name is 'Nodes'.
-    elements : list
-        The list of elments in standard format:
-            [ele1Tag, ele1Node1, ..., ele1NodeN]
-            [......., ........, ..., ........]
-            [eleNTag, eleNNode1, ..., eleNNodeN]
-        The default is 'Elements'.
-    Scale :  float, optional
-        The scale on the xy/xyz displacements. The default is 1.
-    fps : TYPE, optional
-        The frames per second to be displayed. This changes the number of 
-        input data points to the animation.      
-        
-        It's dubious that the animation will actually display frames at teh
-        correct rate, because of performance limitations in matplotlib's
-        animation module.
-        The default is 24.
-    FrameInterval : float, optional
-        The time interval between frames to be used. This is used if the user
-        wants a certain density of frames, say 24 per input second, but wants 
-        to display them at a different intervals than 1/fps. 
-        
-        The default is 0, which causes 1/fps to be used.
-    skipFrame : int, optional
-        This allows the user to skip a certain number of input frames
-        and start the animation later. The default is 1.
-    timeScale : float, optional
-        This allows for the animation to be spead up. Note that the speed will
-        ultimately be limited by peformance. The default is 1.
 
 
-    Returns
-    -------
-    ani : Matplotlib Animation object
-        The matplotlib animation object. This must be stored for the animation
-        to work.
-
-    """
-    
-    # Get nodes and elements
-    ndm = len(nodes[0,1:])
-    
-    # Get Style Sheet
-    if CustomStyleFunction == None:
-        BasicStyle = Style.getStyle(Style.AniStyleSheet)
-    else:
-        BasicStyle = Style.getStyle(CustomStyleFunction)
-    
-    # initialize figure
-    fig, ax = initializeFig(nodes[:,1:], BasicStyle, ndm)    
-    
-	# Adjust plot area.   
-    setStandardViewport(fig, ax, BasicStyle, nodes[:,1:], ndm, deltaAni)
-    
-    # Get the animation
-    ani = getDispAnimation(dt, deltaAni, nodes, elements, fig, ax, BasicStyle, Scale = Scale, fps = fps,
-                           FrameInterval = FrameInterval, skipFrame = skipFrame, timeScale = timeScale)
-    
-    return ani
-
-def getDispAnimation(dt, deltaAni, nodes, elements, fig, ax, Style, Scale = 1, 
-                     fps = 24, FrameInterval = 0, skipFrame =1, timeScale = 1):
+def animate_deformedshape(OutputDatabase, dt, tStart = 0, tEnd = 0, Scale = 1, fps = 24, 
+                          FrameInterval = 0, skipFrame =1, timeScale = 1, Movie='none'):
     """
     This defines the animation of an opensees model, given input data.
     
@@ -1099,14 +911,20 @@ def getDispAnimation(dt, deltaAni, nodes, elements, fig, ax, Style, Scale = 1,
 
     Parameters
     ----------
+    Model : string
+        The name of the input model database.    
+    LoadCase : string
+        The name of the input loadcase.    
     dt : 1D array
-        The input time steps.
-    deltaAni : 3D array, [NtimeAni,Nnodes,ndm]
-        The input displacement of each node for all time, in every dimension.
-    nodes: 
-        The node list in standard format
-    elements: 1D list
-        The elements list in standard format.
+        The time step between frames in the input file. The input file should
+        have approximately the same number of time between each step or the
+        animation will appear to speed up or slow down.
+    tStart: float, optional
+        The start time for animation. It can be approximate value and the program 
+        will find the closest matching time step.
+    tEnd: float, optional
+        The end time for animation. It can be approximate value and the program 
+        will find the closest matching time step.
     NodeFileName : Str
         Name of the input node information file.
     ElementFileName : Str
@@ -1122,6 +940,8 @@ def getDispAnimation(dt, deltaAni, nodes, elements, fig, ax, Style, Scale = 1,
         DESCRIPTION. The default is 1.
     timeScale : TYPE, optional
         DESCRIPTION. The default is 1.
+    Movie : str, optional 
+        Name of the movie file if the user wants to save the animation as .mp4 file.
 
     Returns
     -------
@@ -1131,58 +951,128 @@ def getDispAnimation(dt, deltaAni, nodes, elements, fig, ax, Style, Scale = 1,
     """
     
     
-    """
-    This function animates an earthquake, given a set of input files.
-
-    """
-    #TODO
-    # Consider removing dt, it isn't doing much right now.
+    # Read Disp From ODB
+    #TODO error handeling?
     
-
+    nodes, elements = _findModelData(OutputDatabase)
+    time, Disp = OutputDatabase._readNodeDispData(OutputDatabase)
+    
+    Disp = Disp*Scale
+    
+    # Reshape array
+    Ntime = len(Disp[:,0])
+    ndm = len(nodes[0,1:])
+    Nnodes = int((len(Disp[0,:]))/ndm)
+    
+    # Get nodes and elements
     ndm = len(nodes[0,1:])
     Nnodes = len(nodes[:,0])
     Nele = len(elements)
     
-    nodeLabels = nodes[:, 0]
+    nodeLabels = nodes[:, 0]       
+
+    # initialize figure
+    fig, ax = _initializeFig(nodes[:,1:], ndm, Disp)    
+    plt.subplots_adjust(bottom=.15) # Add extra space bellow graph
     
+	# Adjust plot area.   
+    _setStandardViewport(fig, ax, nodes[:,1:], ndm, Disp)
+         
+       
     # ========================================================================
     # Initialize Plots
     # ========================================================================
-        
+    
+    initialDisp = nodes[:, 1:] + Disp[0,:,:]
+    
     # Add Text
     if ndm == 2:
         time_text = ax.text(0.95, 0.01, '', verticalalignment='bottom', 
-                            horizontalalignment = 'right', transform = ax.transAxes, color='grey')
+                            horizontalalignment='right', transform=ax.transAxes, color='blue')
         
-    EQObjects = update_Plot_Disp(nodes, elements, fig, ax, Style)
-    [EqfigNodes, EqfigElements, EqfigSurfaces, EqfigText] = EQObjects    
+        EQObjects = _plotEle_2D(nodes, elements, initialDisp, fig, ax, show_element_tags = 'no')
+        [EqfigLines, EqfigSurfaces, EqfigText] = EQObjects 
+        EqfigNodes, = ax.plot(Disp[0,:,0],Disp[0,:,1], **node_style_animation)  
+                    
+    if ndm == 3:
+        time_text = ax.text2D(0.95, 0.01, '', verticalalignment='bottom', 
+                            horizontalalignment='right', transform=ax.transAxes, color='blue')
+        EQObjects = _plotEle_3D(nodes, elements, initialDisp, fig, ax, show_element_tags = 'no')
+        [EqfigLines, EqfigSurfaces, EqfigText] = EQObjects 
+        EqfigNodes, = ax.plot(Disp[0,:,0], Disp[0,:,1], Disp[0,:,2], **node_style_animation)  
 
-    # EqfigNodes
-    Nsurf = len(EqfigSurfaces)
-
-    # =============================================================================
+    # ========================================================================
     # Animation
-    # =============================================================================
+    # ========================================================================
    
     # Scale on displacement
-    dtInput  = dt[1]
+    dtInput  = dt
     dtFrames  = 1/fps
-    Ntime = len(dt)
-    
-    deltaAni = deltaAni*Scale
-    
+    Ntime = len(Disp[:,0])
+    Frames = np.arange(0,Ntime)
+    framesTime = Frames*dt
+
     # If the interval is zero
     if FrameInterval == 0:
         FrameInterval = dtFrames*1000/timeScale
     else: 
-        pass
-    
-    # in 3D, we need to use the "set data 3D" method.
-    def animate2D(ii):
-        # this is the most performance critical area of code
+        pass    
         
+    FrameStart = Frames[0]
+    FrameEnd = Frames[-1]
+	
+    if tStart != 0:
+        jj = (np.abs(time - tStart)).argmin()
+        FrameStart = Frames[jj]
+	
+    if tEnd != 0:
+        if time[-1] < tEnd:
+            print("XX Warining: tEnd has exceeded maximum analysis time step XX")
+            print("XX tEnd has been set to final analysis time step XX")
+        elif tEnd <= tStart:
+            print("XX Input Warning: tEnd should be greater than tStart XX")
+            print("XX tEnd has been set to final analysis time step XX")
+        else:
+            kk = (np.abs(time - tEnd)).argmin()
+            FrameEnd = Frames[kk]
+
+    aniFrames = FrameEnd-FrameStart  # Number of frames to be animated
+	
+    # Slider Location and size relative to plot
+    # [x, y, xsize, ysize]
+    axSlider = plt.axes([0.25, .03, 0.50, 0.02])
+    plotSlider = Slider(axSlider, 'Time', framesTime[FrameStart], framesTime[FrameEnd], valinit=framesTime[FrameStart])
+    
+    # Animation controls
+    global is_paused
+    is_paused = False # True if user has taken control of the animation   
+    
+    def on_click(event):
+        # Check where the click happened
+        (xm,ym),(xM,yM) = plotSlider.label.clipbox.get_points()
+        if xm < event.x < xM and ym < event.y < yM:
+            # Event happened within the slider, ignore since it is handled in update_slider
+            return
+        else:
+            # Toggle on off based on clicking
+            global is_paused
+            if is_paused == True:
+                is_paused=False
+            elif is_paused == False:
+                is_paused=True
+                
+    def animate2D_slider(Time):
+        """
+        The slider value is liked with the plot - we update the plot by updating
+        the slider.
+        """
+        global is_paused
+        is_paused=True
+        # Convert time to frame
+        TimeStep = (np.abs(framesTime - Time)).argmin()
+               
         # The current node coordinants in (x,y) or (x,y,z)
-        CurrentNodeCoords =  nodes[:,1:] + deltaAni[ii,:,:]
+        CurrentNodeCoords =  nodes[:,1:] + Disp[TimeStep,:,:]
         # Update Plots
         
         # update node locations
@@ -1198,7 +1088,6 @@ def getDispAnimation(dt, deltaAni, nodes, elements, fig, ax, Style, Scale = 1,
         # Define the surface
         SurfCounter = 0
         
-        # print('loop start')
         # update element locations
         for jj in range(Nele):
             # Get the node number for the first and second node connected by the element
@@ -1209,8 +1098,8 @@ def getDispAnimation(dt, deltaAni, nodes, elements, fig, ax, Style, Scale = 1,
             coords_y = [xy[1] for xy in TempNodeCoords]
             
             # Update element lines    
-            EqfigElements[jj].set_xdata(coords_x)
-            EqfigElements[jj].set_ydata(coords_y)
+            EqfigLines[jj].set_xdata(coords_x)
+            EqfigLines[jj].set_ydata(coords_y)
             # print('loop start')
             # Update the surface if necessary
             if 2 < len(TempNodes):
@@ -1219,17 +1108,24 @@ def getDispAnimation(dt, deltaAni, nodes, elements, fig, ax, Style, Scale = 1,
                 SurfCounter += 1
        
         # update time Text
-        time_text.set_text(round(dtInput*ii,1))
-        time_text.set_text(str(round(dtInput*ii,1)) )
+        # time_text.set_text("Time= "+'%.2f' % time[TimeStep]+ " s")
         
-        
-        return EqfigNodes, EqfigElements, EqfigSurfaces, EqfigText
+        # redraw canvas while idle
+        fig.canvas.draw_idle()    
+            
+        return EqfigNodes, EqfigLines, EqfigSurfaces, EqfigText
 
-    def animate3D(ii):
+    def animate3D_slider(Time):
+        
+        
+        global is_paused
+        is_paused=True
+        TimeStep = (np.abs(framesTime - Time)).argmin()
+        
         # this is the most performance critical area of code
         
         # The current node coordinants in (x,y) or (x,y,z)
-        CurrentNodeCoords =  nodes[:,1:] + deltaAni[ii,:,:]
+        CurrentNodeCoords =  nodes[:,1:] + Disp[TimeStep,:,:]
         # Update Plots
         
         # update node locations
@@ -1254,7 +1150,7 @@ def getDispAnimation(dt, deltaAni, nodes, elements, fig, ax, Style, Scale = 1,
             coords_z = [xyz[2] for xyz in TempNodeCoords]
             
             # Update element Plot    
-            EqfigElements[jj].set_data_3d(coords_x, coords_y, coords_z)
+            EqfigLines[jj].set_data_3d(coords_x, coords_y, coords_z)
             
             if len(TempNodes) > 2:
                 # Update 3D surfaces
@@ -1265,21 +1161,60 @@ def getDispAnimation(dt, deltaAni, nodes, elements, fig, ax, Style, Scale = 1,
                 tempVec[3,:] = EqfigSurfaces[SurfCounter]._vec[3,:]
                 EqfigSurfaces[SurfCounter]._vec = tempVec
                 SurfCounter += 1
+                
+        # update time Text
+        # time_text.set_text("Time= "+'%.3f' % time[TimeStep]+ " s")
         
-        
-        
-        
-        return EqfigNodes, EqfigElements, EqfigSurfaces, EqfigText
+        # redraw canvas while idle
+        fig.canvas.draw_idle()   
 
-    steps = np.arange(0,Ntime)
+        return EqfigNodes, EqfigLines, EqfigSurfaces, EqfigText
+
+    def update_plot(ii):
+        # If the control is manual, we don't change the plot    
+        global is_paused
+        if is_paused:
+            return EqfigNodes, EqfigLines, EqfigSurfaces, EqfigText
+       
+        # Find the close timeStep and plot that
+        CurrentTime = plotSlider.val
+        CurrentFrame = (np.abs(framesTime - CurrentTime)).argmin()
+
+        CurrentFrame += 1
+        if CurrentFrame >= FrameEnd:
+            CurrentFrame = FrameStart
+        
+        # Update the slider
+        plotSlider.set_val(framesTime[CurrentFrame])
+        
+        is_paused = False # the above line called update_slider, so we need to reset this
+        return EqfigNodes, EqfigLines, EqfigSurfaces, EqfigText
 
     if ndm == 2:
-        ani = animation.FuncAnimation(fig, animate2D, steps, interval = FrameInterval)
+        plotSlider.on_changed(animate2D_slider)
     elif ndm == 3:
-        ani = animation.FuncAnimation(fig, animate3D, steps, interval = FrameInterval)
+        plotSlider.on_changed(animate3D_slider)
     
-    
+    # assign click control
+    fig.canvas.mpl_connect('button_press_event', on_click)
+
+    ani = animation.FuncAnimation(fig, update_plot, aniFrames, interval = FrameInterval)
+	
+    if Movie != "none":
+        MovefileName = Movie + '.mp4'
+        ODBdir = Model+"_ODB"		# ODB Dir name
+        Movfile = os.path.join(ODBdir, LoadCase, MovefileName)
+        print("Saving the animation movie as "+MovefileName+" in "+ODBdir+"->"+LoadCase+" folder")
+        ani.save(Movfile, writer='ffmpeg')
+
+    plt.show()
     return ani
+
+
+
+
+
+
 
 def AnimateDispSlider(dt, deltaAni, nodes, elements, Scale = 1, 
                 fps = 24, FrameInterval = 0, skipFrame =1, timeScale = 1, 
@@ -1608,3 +1543,69 @@ def getDispAnimationSlider(dt, deltaAni, nodes, elements, fig, ax, Style, Scale 
 
 
 
+
+
+# =============================================================================
+# Depiciated
+# =============================================================================
+
+def plot_active_model(CustomStyleFunction = None):
+    raise Exception('This function is deprciated. Instead use plot_model')
+    
+
+
+def saveNodesandElements(nodeName = 'Nodes', eleName = 'Elements', 
+                          delim = ',', fmt = '%.5e', ftype = '.out'):
+    """   
+        Depriciated
+
+    """
+    
+    raise Exception('This function is deprciated. Instead use make a database and use database.saveNodesandElements()')
+    
+def readNodesandElements(nodeName = 'Nodes', eleName = 'Elements', delim = ',', 
+                         dtype ='float32', ftype = '.out'):
+    """   
+        Depriciated
+
+    """
+    raise Exception('This function is deprciated. Instead use make a database and use database.readNodesandElements()')
+
+
+def readDisp(DispName = 'All_Disp', outputDir = 'vis',  ftype = '.out', 
+             delim = ' ', dtype ='float32'):
+    """   
+        Depriciated
+
+    """
+        
+    # Load the relevant information
+    raise Exception('This function is deprciated. Instead use make a database and use database.readNodeDispData()')
+
+def plot_model_disp(LoadStep,    scale = 1, dispName = 'All_Disp', 
+                    CustomStyleFunction = None, CustomDispStyleFunction = None,
+                    nodeName = 'Nodes', eleName = 'Elements', delim = ',', 
+                    dtype = 'float32', ftype = '.out'):
+    
+    raise Exception('This function is deprciated. Instead use make a database and use plot_deformedShape()')
+    
+    
+    
+    
+def AnimateDisp(dt, deltaAni, nodes, elements, Scale = 1, 
+                fps = 24, FrameInterval = 0, skipFrame =1, timeScale = 1, 
+                CustomStyleFunction = None):
+    """
+    Depricated
+    """
+    
+    raise Exception('This function is deprciated. Instead use make a database and use animate_deformedshape()')
+
+
+def getDispAnimation(dt, deltaAni, nodes, elements, fig, ax, Style, Scale = 1, 
+                     fps = 24, FrameInterval = 0, skipFrame =1, timeScale = 1):
+    """
+    Depricated
+    """
+    
+    raise Exception('This function is deprciated. Instead use make a database and use animate_deformedshape()')
