@@ -69,8 +69,8 @@ for element in element4D:
 
 
 # pl.plot_model_basic() 
-opm.plot_active_model(customStyleSheet)
+opm.plot_model(customStyleSheet)
 
-opm.plot_active_model()
+opm.plot_model()
 
 # opp.plot_model()                        
