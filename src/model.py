@@ -12,7 +12,9 @@ from matplotlib.widgets import Slider
 import numpy as np
 import openseespy.opensees as op
 import os
-    
+from math import asin
+
+
 import openseespytools.data as D 
 import openseespytools.stylesheets as Style
 
@@ -128,29 +130,33 @@ def getNodesandElements():
 
 def getModeShapeData(modeNumber):
      
-     # Get nodes and elements
-     nodeList = op.getNodeTags()
+    # Get nodes and elements
+    nodeList = op.getNodeTags()
      
-     # Check Number of dimensions and intialize variables
-     ndm = len(op.nodeCoord(nodeList[0]))
-     Nnodes = len(nodeList)
-     modeshape = np.zeros([Nnodes, ndm + 1])
-     
-     for ii, node in enumerate(nodeList):
+    # Check Number of dimensions and intialize variables
+    ndm = len(op.nodeCoord(nodeList[0]))
+    Nnodes = len(nodeList)
+    modeshape = np.zeros([Nnodes, ndm + 1])
+    
+    op.wipeAnalysis()
+    eigenVal = op.eigen(modeNumber)
+    Tn = 4*asin(1.0)/(eigenVal[modeNumber-1])**0.5
+         
+    for ii, node in enumerate(nodeList):
          modeshape[ii,0] = node
          tempData = op.nodeEigenvector(nodeList[ii], modeNumber)
          modeshape[ii,1:] = tempData[0:ndm]
- 
-     return modeshape
+         
+
+        
+    return modeshape, Tn
 
 # =============================================================================
 # Enabling functions
 # =============================================================================
 
     
-def getAnimationDisp(DispFileDir, dtFrames, ndm,  saveFile = True, 
-                     outputNameT = 'TimeOut', outputNameX = 'DispOutX', 
-                     outputNameY = 'DispOutY', outputNameZ = 'DispOutZ'):
+def getAnimationDisp(OutputDatabase, dtFrames, ndm, InputFileName = 'NodeDisp_All.out',   outputName = 'NodeDisp_Ani', saveFile = True,):
     """
     This function prepars an input displacement  for animation.
     Often the input file for displacement is very large, and takes a long time
@@ -186,73 +192,59 @@ def getAnimationDisp(DispFileDir, dtFrames, ndm,  saveFile = True,
 
 
     """    
-    
-    
+
     # read the files using numpy
-    DisplacementData = readDisp(DispFileDir)
+    timeSteps, nodeDisp = OutputDatabase.readNodeDispData(InputFileName)
     
     # Get vectors of time data and base x and y locations
     # x0 and y0 are vectors with n columns, where n is the number of nodes
-    timeEarthquake = DisplacementData[:, 0]
-       
-    # Organize displacement data
-    if ndm == 2:
-        dxEarthquake = DisplacementData[:, 1::2]
-        dyEarthquake = DisplacementData[:, 2::2]
-        deltaEQ = [dxEarthquake,dyEarthquake]
-    if ndm == 3:
-        dxEarthquake = DisplacementData[:, 1::3]
-        dyEarthquake = DisplacementData[:, 2::3]    
-        dzEarthquake = DisplacementData[:, 3::3]    
-        deltaEQ = [dxEarthquake,dyEarthquake,dzEarthquake]
-    
+    timeEarthquake = timeSteps
            
+    deltaEQ = nodeDisp
     # Create variables to store animation time data
     Tmax = np.max(timeEarthquake)
     Tmin = np.min(timeEarthquake)
     timeAni = np.arange(Tmin,Tmax,dtFrames)
     
     Ntime = len(timeAni)
-           
-    N_nodes = len(DisplacementData[0, 1::ndm])
+    N_nodes = len(nodeDisp[0,:,0])
     
     # Define an array that has the xy or xyz information for animation over all time
-    deltaAni = np.zeros([Ntime,N_nodes,ndm])
+    deltaAni = np.zeros([Ntime, N_nodes, ndm])
 
-    
     # Define a counter, this will be used to keep track of how long. It can take
     # a long time for big models!
     counter = 0
     
-    # For each coordinat (x,y) or (xyz):
-    for ii in range(ndm):
-        
-        # for each node:
-        for jj in range(N_nodes):
+    for ii in range(ndm):               # For each coordinat (x,y) or (xyz):
+        for jj in range(N_nodes):       # for each node:
+            
             # Keep track of how many iterations have been complete
             if np.floor(10*jj*(ii+1)/(N_nodes*(ndm))) > counter:
                 print('The processing is ', (counter + 1)*10, ' percent complete.')
                 counter +=1
             
             # Get the node earthquake displacement for the dimension 'n'
-            NodeEQDisp = deltaEQ[ii][:,jj]
+            NodeEQDisp = deltaEQ[:, jj, ii]
             
             # Shift the displacement into the animation displacement frame
             deltaAni[:,jj,ii] = D.ShiftDataFrame(timeEarthquake, NodeEQDisp, timeAni)
     
-    
+   
     # Save the file information if it is requested.
     if saveFile == True:
-        if ndm == 2:
-            np.savetxt(outputNameT + '.csv',timeAni, delimiter = ',')
-            np.savetxt(outputNameX + '.csv',deltaAni[:,:,0], delimiter = ',')
-            np.savetxt(outputNameY + '.csv',deltaAni[:,:,1], delimiter = ',')
-        if ndm == 3:
-            np.savetxt(outputNameT + '.csv',timeAni, delimiter = ',')
-            np.savetxt(outputNameX + '.csv',deltaAni[:,:,0], delimiter = ',')
-            np.savetxt(outputNameY + '.csv',deltaAni[:,:,1], delimiter = ',')
-            np.savetxt(outputNameZ + '.csv',deltaAni[:,:,2], delimiter = ',')   
-    
+        outputDisp = np.zeros([Ntime, N_nodes*ndm + 1])
+        outputDisp[:,0] = timeAni
+        for ii in range(ndm):
+            outputDisp[:,(ii+1)::ndm] = deltaAni[:,:,ii]
+            
+        outputDir = os.path.join(OutputDatabase.LoadCaseDir, outputName)
+        # OutputDatabase
+        fmt = OutputDatabase.fmt
+        delim = OutputDatabase.delim
+        ftype = OutputDatabase.ftype
+        
+        np.savetxt(outputDir + ftype, outputDisp, delimiter = delim, fmt = fmt)
     
     return timeAni, deltaAni    
 
@@ -350,14 +342,11 @@ def _getCubeSurf(Nodes, xyz_labels, ax, Style):
     [tempLines[4], tempSurfaces[4]] = _getSubSurface([jNode, kNode, kkNode, jjNode],  ax, Style)
     [tempLines[5], tempSurfaces[5]] = _getSubSurface([iNode, lNode, llNode, iiNode],  ax, Style)
 
-        
     return tempLines, tempSurfaces
 
 # =============================================================================
 # Plotting function enablers
 # =============================================================================
-
-#TODO remove scale, scale should be applied before the update function
 
 
 def _update_Plot_Disp(nodes, elements, fig, ax, Style, DisplacementData = np.array([])):
@@ -573,7 +562,7 @@ def _update_Plot_Disp(nodes, elements, fig, ax, Style, DisplacementData = np.arr
 
     return figNodes, figLines, figSurfaces, figTags
 
-def _setStandardViewport(fig, ax, Style, nodeCords, ndm, Disp = [], scale = 1):
+def _setStandardViewport(fig, ax, Style, nodeCords, ndm, Disp = np.array([]) ):
     """
     This function sets the standard viewport size of a function, using the
     nodes as an input.
@@ -600,30 +589,27 @@ def _setStandardViewport(fig, ax, Style, nodeCords, ndm, Disp = [], scale = 1):
 
     """
     
-    #TODO
-    # Check if delta ani is a different format than the standard displacement
-    
-    # For the displacement function, the input is a vector
-    
     # Adjust plot area, get the bounds on both x and y
     nodeMins = np.min(nodeCords, 0)
     nodeMaxs = np.max(nodeCords, 0)
     
     # Get the maximum displacement in each direction
-    if Disp != []:
+    if len(Disp) != 0:
         
         # if it's the animation
         if len(Disp.shape) == 3:
-            dispmax = np.max(np.abs(Disp), (0,1))*scale
+            dispmax = np.max(np.abs(Disp), (0,1))
+
         # if it's regular displacement 
         else:
-            dispmax = np.max(np.abs(Disp), 0)*scale
-        nodeMins = np.min(nodeCords, 0) - dispmax
-        nodeMaxs = np.max(nodeCords, 0) + dispmax
+            dispmax = np.max(np.abs(Disp), 0)
+
+        nodeMins = np.min(nodeCords, 0) - dispmax  
+        nodeMaxs = np.max(nodeCords, 0) + dispmax  
 
 
     viewCenter = np.average([nodeMins, nodeMaxs], 0)
-    viewDelta = 1.1*(nodeMaxs - nodeMins)
+    viewDelta = 1.1*(abs(nodeMaxs - nodeMins))
     viewRange = max(nodeMaxs - nodeMins)
         
     if ndm == 2:
@@ -634,20 +620,20 @@ def _setStandardViewport(fig, ax, Style, nodeCords, ndm, Disp = [], scale = 1):
         ax.set_ylabel('Y')
         
     if ndm == 3:
-        ax.set_xlim(viewCenter[0]-(viewRange/4), viewCenter[0]+(viewRange/4))
-        ax.set_ylim(viewCenter[1]-(viewRange/4), viewCenter[1]+(viewRange/4))
-        ax.set_zlim(viewCenter[2]-(viewRange/3), viewCenter[2]+(viewRange/3))
+        ax.set_xlim(viewCenter[0]-(viewRange/2), viewCenter[0]+(viewRange/2))
+        ax.set_ylim(viewCenter[1]-(viewRange/2), viewCenter[1]+(viewRange/2))
+        ax.set_zlim(viewCenter[2]-(viewRange/2), viewCenter[2]+(viewRange/2))
         
         ax.set_xlabel('X')
         ax.set_ylabel('Y')
         ax.set_zlabel('Z')
 	
-    if Style.axis_text == False:
+    if Style.show_axis == False:
         plt.axis('off')
     
     return fig, ax
 
-def _initializeFig(nodeCords,Style,ndm):
+def _initializeFig(nodeCords, ndm, Disp = np.array([]) ):
     
     # set the maximum figure size
     maxFigSize = 8
@@ -656,8 +642,22 @@ def _initializeFig(nodeCords,Style,ndm):
     nodeMins = np.min(nodeCords, 0)
     nodeMaxs = np.max(nodeCords, 0)    
     
-    # 
-    nodeDelta = nodeMaxs - nodeMins
+    # Get the maximum displacement in each direction
+    if len(Disp) != 0:
+        
+        # if it's the animation
+        if len(Disp.shape) == 3:
+            dispmax = np.max(np.abs(Disp), (0,1))
+            
+        # if it's regular displacement 
+        else:
+            dispmax = np.max(np.abs(Disp), 0)
+
+        nodeMaxs = np.min(nodeCords, 0) - dispmax   
+        nodeMaxs = np.max(nodeCords, 0) + dispmax   
+        
+    # Find the difference between each node.
+    nodeDelta = np.abs(nodeMaxs - nodeMins)
     dmax = np.max(nodeDelta[:2])
     
     # Set the figure size
@@ -677,12 +677,14 @@ def _findModelData(OutputDatabase):
         
     try:
         nodes, elements = getNodesandElements()
+        Model = True
     except:
         Model = False
         
     if Model == False:
         try:
             nodes, elements = OutputDatabase.readNodesandElements()
+            Model = True
         except:
             Model = False
     
@@ -694,20 +696,23 @@ def _findModelData(OutputDatabase):
 def _findModeData(OutputDatabase, modeNumber):
         # Get nodes and elements ( should this be a function?)
     try:
-        modeshape = getModeShapeData(modeNumber)
+        # Here modeshape is a vector for every node, period is a single vector
+        modeShape, modePeriods = getModeShapeData(modeNumber)
+        Model = True
     except:
         Model = False
         
     if Model == False:
         try:
-            modeshape, = OutputDatabase.readModeShapeData(modeNumber)
+            modeShape, modePeriods = OutputDatabase.readModeShapeData(modeNumber)
+            Model = True
         except:
             Model = False
     
     if Model == False:
         raise Exception('No model or database found.')
     
-    return modeshape
+    return modeShape, modePeriods
 
 
 def plot_model(OutputDatabase = None, CustomStyleFunction = None):
@@ -743,11 +748,11 @@ def plot_model(OutputDatabase = None, CustomStyleFunction = None):
     ndm = len(nodes[0,1:])        
 
     # Initialize model
-    fig, ax = _initializeFig(nodes[:,1:], BasicStyle, ndm)
+    fig, ax = _initializeFig(nodes[:,1:], ndm)
     
     # Plot the first set of data
     _update_Plot_Disp(nodes, elements, fig, ax, BasicStyle)
-     
+    
     # Adjust viewport size
     _setStandardViewport(fig, ax, BasicStyle, nodes[:,1:], ndm)
     
@@ -757,7 +762,7 @@ def plot_model(OutputDatabase = None, CustomStyleFunction = None):
     return fig, ax
 
 
-def plot_deformedshape(OutputDatabase, tstep = -1,   scale = 1, overlap='no',
+def plot_deformedshape(OutputDatabase, tstep = -1,   scale = 1,
                        CustomStyleFunction = None, CustomDispStyleFunction = None):
         
     """
@@ -789,26 +794,19 @@ def plot_deformedshape(OutputDatabase, tstep = -1,   scale = 1, overlap='no',
     
     # number of dimensions
     ndm = len(nodes[0,1:])
-    Nnodes = len(nodes[:,0])
-    
-    #TODO
-    # Consider scaling and resizing the displacement array in the read Disp 
-    # Function. That way it's only done once.
-    
+        
     # Get the displacements if there are any.
-    timeSteps, nodeDisp = OutputDatabase.readNodeDispDatareadDisp()
-    disp = np.zeros([Nnodes,ndm])
+    timeSteps, nodeDisp = OutputDatabase.readNodeDispData()
     
     CurrentTimeStep = (np.abs(timeSteps - tstep)).argmin()
     if timeSteps[-1] < tstep:
-        print("XX Warining: Time-Step has exceeded maximum analysis time step XX")
+        print("XX Warining: Time-step has exceeded maximum analysis time step XX")
+        print("Using the last time-step.")
 		
     # DeflectedNodeCoordArray = nodeArray[:,1:] + scale*Disp_nodeArray[int(jj),:,:]    
     
-    
-    # This might no longer be necessary.....
-    for ii in range(ndm):
-        disp[:,ii] = nodeDisp[CurrentTimeStep, (ii+ 1)::ndm]
+    currentDisp = nodeDisp[CurrentTimeStep,:,:]*scale
+    printLine = "Deformation at time: " + str(round(timeSteps[CurrentTimeStep], 2))
     
     # Get Style Sheet for dispaced model
     if CustomDispStyleFunction == None:
@@ -816,29 +814,35 @@ def plot_deformedshape(OutputDatabase, tstep = -1,   scale = 1, overlap='no',
     else:
         DispStyle = Style.getStyle(CustomDispStyleFunction)
 
-    # Get Style Sheet for dispaced model
+    # Get Style Sheet for static model
     if CustomStyleFunction == None:
         StaticStyle = Style.getStyle(Style.StaticStyleSheet)
     else:
         StaticStyle = Style.getStyle(CustomStyleFunction)
     
     # initialize figure
-    fig, ax = _initializeFig(nodes[:,1:] + disp*scale, DispStyle, ndm)
+    fig, ax = _initializeFig(nodes[:,1:], ndm, currentDisp)
     
     # Plot basemodel if requested, then plot displacement
     if DispStyle.showUndeflected == True:
         _update_Plot_Disp(nodes, elements, fig, ax, StaticStyle)
-    _update_Plot_Disp(nodes, elements, fig, ax, DispStyle,  disp, scale)
+    _update_Plot_Disp(nodes, elements, fig, ax, DispStyle,  currentDisp)
 
 	# Adjust plot area.
-    _setStandardViewport(fig, ax, DispStyle, nodes[:,1:], ndm, disp*scale)
-	
-    plt.show()
+    _setStandardViewport(fig, ax, DispStyle, nodes[:,1:], ndm, currentDisp)
+    
+    # add Text
+    if DispStyle.summaryText == True:
+        if ndm == 2:
+            ax.text(0.10, 0.9, printLine, transform=ax.transAxes)
+        elif ndm ==3:
+            ax.text2D(0.10, 0.9, printLine, transform=ax.transAxes)
+        plt.show()
     
     return fig,  ax
 
 
-def plot_modeshape(OutputDatabase, modeNumber, scale = 1, overlap='no',
+def plot_modeshape(OutputDatabase, modeNumber, scale = 1,
                    CustomStyleFunction = None, CustomDispStyleFunction = None):
     """
     This function plots a the displacement of a model. It's assumed that node
@@ -866,7 +870,10 @@ def plot_modeshape(OutputDatabase, modeNumber, scale = 1, overlap='no',
     
     # Error handling for nodes and elements
     nodes, elements = _findModelData(OutputDatabase)
-    modeshape = _findModeData(OutputDatabase, modeNumber)
+    modeshape, modePeriod = _findModeData(OutputDatabase, modeNumber)
+    
+    # Scale Mode Shape
+    modeshape[:,1:] = modeshape[:,1:]*scale
     
     # number of dimensions
     ndm = len(nodes[0,1:])
@@ -884,24 +891,33 @@ def plot_modeshape(OutputDatabase, modeNumber, scale = 1, overlap='no',
         StaticStyle = Style.getStyle(CustomStyleFunction)
     
     # initialize figure
-    fig, ax = _initializeFig(nodes[:,1:], DispStyle, ndm)
+    fig, ax = _initializeFig(nodes[:,1:], ndm, modeshape[:,1:])
     
     # Plot basemodel if requested, then plot displacement
     if DispStyle.showUndeflected == True:
         _update_Plot_Disp(nodes, elements, fig, ax, StaticStyle)
-    _update_Plot_Disp(nodes, elements, fig, ax, DispStyle,  modeshape, scale)
+    _update_Plot_Disp(nodes, elements, fig, ax, DispStyle,  modeshape[:,1:])
 
 	# Adjust plot area.
     _setStandardViewport(fig, ax, DispStyle, nodes[:,1:], ndm)
 	
+    # add Text
+    if DispStyle.summaryText == True:
+        if ndm == 2:
+            ax.text(0.10, 0.95, "Mode "+str(modeNumber), transform=ax.transAxes)
+            ax.text(0.10, 0.90, "T = "+str("%.3f" % modePeriod)+" s", transform=ax.transAxes)    
+        elif ndm ==3:
+            ax.text2D(0.10, 0.95, "Mode "+str(modeNumber), transform=ax.transAxes)
+            ax.text2D(0.10, 0.90, "T = "+str("%.3f" % modePeriod)+" s", transform=ax.transAxes)    
+    
     plt.show()
     
     return fig, ax
 
 
-
-def animate_deformedshape(OutputDatabase, dt, tStart = 0, tEnd = 0, Scale = 1, fps = 24, 
-                          FrameInterval = 0, skipFrame =1, timeScale = 1, Movie='none'):
+def animate_deformedshape(OutputDatabase, dt, DispName = '', tStart = 0, tEnd = 0, Scale = 1, fps = 24, 
+                          FrameInterval = 0, skipFrame =1, timeScale = 1,
+                          CustomDispStyleFunction = None):
     """
     This defines the animation of an opensees model, given input data.
     
@@ -950,63 +966,49 @@ def animate_deformedshape(OutputDatabase, dt, tStart = 0, tEnd = 0, Scale = 1, f
 
     """
     
-    
-    # Read Disp From ODB
-    #TODO error handeling?
-    
+    # Get Style Sheet for dispaced model
+    if CustomDispStyleFunction == None:
+        DispStyle = Style.getStyle(Style.BasicStyleSheet)
+        DispStyle.node_tags = False
+        DispStyle.ele_tags = False
+    else:
+        DispStyle = Style.getStyle(CustomDispStyleFunction)
+        
+    # If no dispmacenet is given, read the default value. Otherwise look for a directory.
     nodes, elements = _findModelData(OutputDatabase)
-    time, Disp = OutputDatabase._readNodeDispData(OutputDatabase)
-    
+    if DispName == '':
+        time, Disp = OutputDatabase.readNodeDispData()
+    else:
+        time, Disp = OutputDatabase.readNodeDispData(DispName)
+
     Disp = Disp*Scale
     
-    # Reshape array
-    Ntime = len(Disp[:,0])
-    ndm = len(nodes[0,1:])
-    Nnodes = int((len(Disp[0,:]))/ndm)
-    
-    # Get nodes and elements
+    # Find number of nodes, elements, and time steps
     ndm = len(nodes[0,1:])
     Nnodes = len(nodes[:,0])
     Nele = len(elements)
     
     nodeLabels = nodes[:, 0]       
 
+    # ========================================================================
+    # Initialize Plots
+    # ========================================================================
+    
     # initialize figure
     fig, ax = _initializeFig(nodes[:,1:], ndm, Disp)    
     plt.subplots_adjust(bottom=.15) # Add extra space bellow graph
     
 	# Adjust plot area.   
-    _setStandardViewport(fig, ax, nodes[:,1:], ndm, Disp)
-         
-       
-    # ========================================================================
-    # Initialize Plots
-    # ========================================================================
+    _setStandardViewport(fig, ax, DispStyle, nodes[:,1:], ndm, Disp)
     
-    initialDisp = nodes[:, 1:] + Disp[0,:,:]
-    
-    # Add Text
-    if ndm == 2:
-        time_text = ax.text(0.95, 0.01, '', verticalalignment='bottom', 
-                            horizontalalignment='right', transform=ax.transAxes, color='blue')
-        
-        EQObjects = _plotEle_2D(nodes, elements, initialDisp, fig, ax, show_element_tags = 'no')
-        [EqfigLines, EqfigSurfaces, EqfigText] = EQObjects 
-        EqfigNodes, = ax.plot(Disp[0,:,0],Disp[0,:,1], **node_style_animation)  
-                    
-    if ndm == 3:
-        time_text = ax.text2D(0.95, 0.01, '', verticalalignment='bottom', 
-                            horizontalalignment='right', transform=ax.transAxes, color='blue')
-        EQObjects = _plotEle_3D(nodes, elements, initialDisp, fig, ax, show_element_tags = 'no')
-        [EqfigLines, EqfigSurfaces, EqfigText] = EQObjects 
-        EqfigNodes, = ax.plot(Disp[0,:,0], Disp[0,:,1], Disp[0,:,2], **node_style_animation)  
+    EQObjects = _update_Plot_Disp(nodes, elements, fig, ax, DispStyle, Disp[0,:,:])
+    [EqfigNodes, EqfigLines, EqfigSurfaces, EqfigText] = EQObjects
 
     # ========================================================================
-    # Animation
+    # Set animation frames
     # ========================================================================
    
     # Scale on displacement
-    dtInput  = dt
     dtFrames  = 1/fps
     Ntime = len(Disp[:,0])
     Frames = np.arange(0,Ntime)
@@ -1022,8 +1024,8 @@ def animate_deformedshape(OutputDatabase, dt, tStart = 0, tEnd = 0, Scale = 1, f
     FrameEnd = Frames[-1]
 	
     if tStart != 0:
-        jj = (np.abs(time - tStart)).argmin()
-        FrameStart = Frames[jj]
+        index = (np.abs(time - tStart)).argmin()
+        FrameStart = Frames[index]
 	
     if tEnd != 0:
         if time[-1] < tEnd:
@@ -1033,11 +1035,15 @@ def animate_deformedshape(OutputDatabase, dt, tStart = 0, tEnd = 0, Scale = 1, f
             print("XX Input Warning: tEnd should be greater than tStart XX")
             print("XX tEnd has been set to final analysis time step XX")
         else:
-            kk = (np.abs(time - tEnd)).argmin()
-            FrameEnd = Frames[kk]
+            index = (np.abs(time - tEnd)).argmin()
+            FrameEnd = Frames[index]
 
     aniFrames = FrameEnd-FrameStart  # Number of frames to be animated
 	
+    # ========================================================================
+    # Begin animation
+    # ========================================================================
+       
     # Slider Location and size relative to plot
     # [x, y, xsize, ysize]
     axSlider = plt.axes([0.25, .03, 0.50, 0.02])
@@ -1051,7 +1057,7 @@ def animate_deformedshape(OutputDatabase, dt, tStart = 0, tEnd = 0, Scale = 1, f
         # Check where the click happened
         (xm,ym),(xM,yM) = plotSlider.label.clipbox.get_points()
         if xm < event.x < xM and ym < event.y < yM:
-            # Event happened within the slider, ignore since it is handled in update_slider
+            # Event happened within the slider, ignore since it.
             return
         else:
             # Toggle on off based on clicking
@@ -1073,7 +1079,6 @@ def animate_deformedshape(OutputDatabase, dt, tStart = 0, tEnd = 0, Scale = 1, f
                
         # The current node coordinants in (x,y) or (x,y,z)
         CurrentNodeCoords =  nodes[:,1:] + Disp[TimeStep,:,:]
-        # Update Plots
         
         # update node locations
         EqfigNodes.set_xdata(CurrentNodeCoords[:,0]) 
@@ -1100,23 +1105,18 @@ def animate_deformedshape(OutputDatabase, dt, tStart = 0, tEnd = 0, Scale = 1, f
             # Update element lines    
             EqfigLines[jj].set_xdata(coords_x)
             EqfigLines[jj].set_ydata(coords_y)
-            # print('loop start')
             # Update the surface if necessary
             if 2 < len(TempNodes):
                 tempxy = np.column_stack([coords_x, coords_y])
                 EqfigSurfaces[SurfCounter].xy = tempxy
                 SurfCounter += 1
-       
-        # update time Text
-        # time_text.set_text("Time= "+'%.2f' % time[TimeStep]+ " s")
-        
+               
         # redraw canvas while idle
         fig.canvas.draw_idle()    
             
         return EqfigNodes, EqfigLines, EqfigSurfaces, EqfigText
 
     def animate3D_slider(Time):
-        
         
         global is_paused
         is_paused=True
@@ -1126,7 +1126,6 @@ def animate_deformedshape(OutputDatabase, dt, tStart = 0, tEnd = 0, Scale = 1, f
         
         # The current node coordinants in (x,y) or (x,y,z)
         CurrentNodeCoords =  nodes[:,1:] + Disp[TimeStep,:,:]
-        # Update Plots
         
         # update node locations
         EqfigNodes.set_data_3d(CurrentNodeCoords[:,0], CurrentNodeCoords[:,1], CurrentNodeCoords[:,2])
@@ -1161,14 +1160,12 @@ def animate_deformedshape(OutputDatabase, dt, tStart = 0, tEnd = 0, Scale = 1, f
                 tempVec[3,:] = EqfigSurfaces[SurfCounter]._vec[3,:]
                 EqfigSurfaces[SurfCounter]._vec = tempVec
                 SurfCounter += 1
-                
-        # update time Text
-        # time_text.set_text("Time= "+'%.3f' % time[TimeStep]+ " s")
         
         # redraw canvas while idle
         fig.canvas.draw_idle()   
 
         return EqfigNodes, EqfigLines, EqfigSurfaces, EqfigText
+
 
     def update_plot(ii):
         # If the control is manual, we don't change the plot    
@@ -1199,200 +1196,229 @@ def animate_deformedshape(OutputDatabase, dt, tStart = 0, tEnd = 0, Scale = 1, f
     fig.canvas.mpl_connect('button_press_event', on_click)
 
     ani = animation.FuncAnimation(fig, update_plot, aniFrames, interval = FrameInterval)
-	
-    if Movie != "none":
-        MovefileName = Movie + '.mp4'
-        ODBdir = Model+"_ODB"		# ODB Dir name
-        Movfile = os.path.join(ODBdir, LoadCase, MovefileName)
-        print("Saving the animation movie as "+MovefileName+" in "+ODBdir+"->"+LoadCase+" folder")
-        ani.save(Movfile, writer='ffmpeg')
 
     plt.show()
     return ani
 
 
-
-
-
-
-
-def AnimateDispSlider(dt, deltaAni, nodes, elements, Scale = 1, 
-                fps = 24, FrameInterval = 0, skipFrame =1, timeScale = 1, 
-                CustomStyleFunction = None):
-    """
-    This function animates displacement in "real time". Model information
-    is passed to the function. A slider is included that can control the animation
+def _fiberInputHandling(InputType, LocalAxis):
     
-    For big models it's unlikely that the animation will actually run at the 
-    desired fps in "real time". Matplotlib just isn't built for high fps 
-    animation.
+    # Catch invalid input types
+    if InputType not in ['stress', 'strain']:
+        raise Exception('Invalid input type. Valid Entries are "stress" and "strain"')
+    
+    # Catch invalid Direction types
+    if LocalAxis not in ['z', 'y']:
+        raise Exception('Invalid LocalAxis type. Valid Entries are "z" and "y"')
+
+    if InputType == 'stress':
+        responseIndex = 3
+        axisYlabel = "Fiber Stress"
+    if InputType == 'strain':
+        responseIndex = 4
+        axisYlabel = "Fiber Strain"
+    
+    if LocalAxis == 'z':
+        axisIndex = 1
+        axisXlabel = "Local z value"
+    if LocalAxis == 'y':
+        axisIndex = 0
+        axisXlabel = "Local y value"
+    
+    return responseIndex, axisIndex, axisXlabel, axisYlabel
+    
+
+def plot_fiberResponse2D(OutputDatabase, element, section, LocalAxis = 'y', 
+                         InputType = 'stress', tstep = -1):
+    """
     
 
     Parameters
     ----------
-    dt : array
-        The input array of times for animation frames.
-    deltaAni : 3D array, [NtimeAni,Nnodes,ndm]
-        The input displacement of each node for all time, in every dimension.
-    nodes : array
-        The input ndoes in standard format:
-            [node1, node1x, node1y]
-            [....., ......, ......]
-            [nodeN, nodeNx, nodeNy]
-        The default name is 'Nodes'.
-    elements : list
-        The list of elments in standard format:
-            [ele1Tag, ele1Node1, ..., ele1NodeN]
-            [......., ........, ..., ........]
-            [eleNTag, eleNNode1, ..., eleNNodeN]
-        The default is 'Elements'.
-    Scale :  float, optional
-        The scale on the xy/xyz displacements. The default is 1.
-    fps : TYPE, optional
-        The frames per second to be displayed. This changes the number of 
-        input data points to the animation.      
-        
-        It's dubious that the animation will actually display frames at teh
-        correct rate, because of performance limitations in matplotlib's
-        animation module.
-        The default is 24.
-    FrameInterval : float, optional
-        The time interval between frames to be used. This is used if the user
-        wants a certain density of frames, say 24 per input second, but wants 
-        to display them at a different intervals than 1/fps. 
-        
-        The default is 0, which causes 1/fps to be used.
-    skipFrame : int, optional
-        This allows the user to skip a certain number of input frames
-        and start the animation later. The default is 1.
-    timeScale : float, optional
-        This allows for the animation to be spead up. Note that the speed will
-        ultimately be limited by peformance. The default is 1.
-
-
-    Returns
-    -------
-    ani : Matplotlib Animation object
-        The matplotlib animation object. This must be stored for the animation
-        to work.
+    Model : string
+        The name of the input model database.    
+    LoadCase : string
+        The name of the input loadcase.    
+    element : int
+        The input element to be plotted
+    section : TYPE
+        The section in the input element to be plotted.
+    LocalAxis : TYPE, optional
+        The local axis to be plotted on the figures x axis. 
+        The default is 'y', 'z' is also possible.
+    InputType : TYPE, optional
+        The quantity to be plotted. The default is 'stress', 'strain' is 
+        also possible
+    tstep : TYPE, optional
+        The time step to be plotted. The program will find the closed time 
+        step to the input value. The default is -1.
 
     """
+    DispStyle = Style.getStyle(Style.BasicStyleSheet)
     
-    # Get nodes and elements
-    ndm = len(nodes[0,1:])
+    # Catch errors
+    outputs = _fiberInputHandling(InputType, LocalAxis)
+    [responseIndex, axisIndex, axisXlabel, axisYlabel] = [*outputs]
+            
+    timeSteps, fiberData  = OutputDatabase.readFiberData2D(element, section)
     
-    # Get Style Sheet
-    if CustomStyleFunction == None:
-        BasicStyle = Style.getStyle(Style.AniStyleSheet)
+    # find the appropriate time step
+    if tstep == -1:
+        LoadStep = -1
+        printLine = "Final deformed shape"
     else:
-        BasicStyle = Style.getStyle(CustomStyleFunction)
-    
-    # initialize figure
-    fig, ax = initializeFig(nodes[:,1:], BasicStyle, ndm)    
-    
-	# Adjust plot area.   
-    
-    setStandardViewport(fig, ax, BasicStyle, nodes[:,1:], ndm, deltaAni)
-    
-    # Get the animation
-    ani = getDispAnimationSlider(dt, deltaAni, nodes, elements, fig, ax, BasicStyle, Scale = Scale, fps = fps,
-                                 FrameInterval = FrameInterval, skipFrame = skipFrame, timeScale = timeScale)
-    
-    return ani
+        LoadStep = (np.abs(timeSteps - tstep)).argmin()			# index closest to the time step requested.
+        if timeSteps[-1] < tstep:
+            print("XX Warining: Time-Step has exceeded maximum analysis time step XX")
+        printLine = 'Fibre '+  InputType + " at time: " + str(round(timeSteps[LoadStep], 2))
+            
 
-def getDispAnimationSlider(dt, deltaAni, nodes, elements, fig, ax, Style, Scale = 1, 
-                           fps = 24, FrameInterval = 0, skipFrame =1, timeScale = 1):
+    fiberYPosition = fiberData[LoadStep,axisIndex::5]
+    fiberResponse  = fiberData[LoadStep, responseIndex::5]
+    
+    # Sort indexes so they appear in an appropraiate location
+    sortedIndexes = np.argsort(fiberYPosition)
+    fibrePositionSorted = fiberYPosition[sortedIndexes]
+    fibreResponseSorted = fiberResponse[sortedIndexes]
+    
+    
+    fig, ax = plt.subplots()
+    Xline = ax.plot([fibrePositionSorted[0],fibrePositionSorted[-1]],[0, 0], c ='black', linewidth = 0.5)
+    line = ax.plot(fibrePositionSorted, fibreResponseSorted)
+    
+    xyinput = np.array([fibrePositionSorted,fibreResponseSorted]).T
+    
+    _setStandardViewport(fig, ax, DispStyle, xyinput, 2)
+    
+    ax.set_ylabel(axisYlabel)  
+    ax.set_xlabel(axisXlabel)    
+        
+    plt.show()
+    return fig, ax
+    
+
+def animate_fiberResponse2D(OutputDatabase, element, section,LocalAxis = 'y', InputType = 'stress', skipStart = 0, 
+                            skipEnd = 0, rFactor=1, outputFrames=0, fps = 24, Xbound = [], Ybound = []):
     """
-    This defines the animation of an opensees model, given input data.
-    
-    For big models it's unlikely that the animation will actually run at the 
-    desired fps in "real time". Matplotlib just isn't built for high fps 
-    animation.
-
     Parameters
     ----------
-    dt : 1D array
-        The input time steps.
-    deltaAni : 3D array, [NtimeAni,Nnodes,ndm]
-        The input displacement of each node for all time, in every dimension.
-    nodes: 
-        The node list in standard format
-    elements: 1D list
-        The elements list in standard format.
-    NodeFileName : Str
-        Name of the input node information file.
-    ElementFileName : Str
-        Name of the input element connectivity file.
-    Scale :  float, optional
-        The scale on the xy/xyz displacements. The default is 1.
-    fps : TYPE, optional
-        The frames per second to be displayed. These values are dubious at best
-        The default is 24.
-    FrameInterval : float, optional
-        The time interval between frames to be used. The default is 0.
-    skipFrame : TYPE, optional
-        DESCRIPTION. The default is 1.
-    timeScale : TYPE, optional
-        DESCRIPTION. The default is 1.
+    Model : string
+        The name of the input model database.    
+    LoadCase : string
+        The name of the input loadcase.    
+    element : int
+        The input element to be plotted
+    section : TYPE
+        The section in the input element to be plotted.
+    LocalAxis : string, optional
+        The local axis to be plotted on the figures x axis. 
+        The default is 'y', 'z' is also possible.
+    InputType : string, optional
+        The quantity 
+    skipStart : int, optional
+        If specified, this many datapoints will be skipped from the analysis
+        data set, before reductions.
+        The default is 0, or no reduction
+    skipEnd : int, optional
+        If specified, this many frames will be skipped at the end of the 
+        analysis dataset, before reduction. The default is 0, or no reduction.
+    rFactor : int, optional
+        If specified, only every "x" frames will be plotted. e.g. x = 2, every 
+        other frame is shown.
+        The default is 1.
+    outputFrames : int, optional
+        The number of frames to be included after all other reductions. If the
+        reduced number of frames is less than this value, no change is made.
+        The default is 0.
+    fps : int, optional
+        Number of animation frames to be displayed per second. The default is 24.
+    Xbound : [xmin, xmax], optional
+        The domain of the chart. The default is 1.1 the max and min values.
+    Ybound : [ymin, ymax], optional
+        The range of the chart. The default is 1.1 the max and min values.
 
-    Returns
-    -------
-    TYPE
-        Earthquake animation.
-
+    
     """
     
+    # Catch errors
+    outputs = _fiberInputHandling(InputType, LocalAxis)
+    [responseIndex, axisIndex, axisXlabel, axisYlabel] = [*outputs]
+    
+    timeSteps, fiberData  = OutputDatabase.readFiberData2D(element, section)
+                
 
-    ndm = len(nodes[0,1:])
-    Nnodes = len(nodes[:,0])
-    Nele = len(elements)
+    fiberYPosition = fiberData[:,axisIndex::5]
+    fiberResponse  = fiberData[:, responseIndex::5]
     
-    nodeLabels = nodes[:, 0]
+    # Sort indexes so they appear in an appropraiate location
+    sortedIndexes = np.argsort(fiberYPosition[0,:])
+    fibrePositionSorted = fiberYPosition[:,sortedIndexes]
+    fibreResponseSorted = fiberResponse[:,sortedIndexes]    
     
-    # ========================================================================
-    # Initialize Plots
-    # ========================================================================
-        
-    # Add Text
-    if ndm == 2:
-        time_text = ax.text(0.95, 0.01, '', verticalalignment='bottom', 
-                            horizontalalignment='right', transform=ax.transAxes, color='grey')
-        
-    EQObjects = update_Plot_Disp(nodes, elements, fig, ax, Style)
-    [EqfigNodes, EqfigElements, EqfigSurfaces, EqfigText] = EQObjects    
+    # If end data is not being skipped, use the full vector length.
+    if skipEnd ==0:
+        skipEnd = len(fiberYPosition)    
+    
+    # Set up bounds based on data from 
+    if Xbound == []:
+        xmin = 1.1*np.min(fibrePositionSorted)
+        xmax = 1.1*np.max(fibrePositionSorted)
+    else:
+        xmin = Xbound[0]       
+        xmax = Xbound[1]
+    
+    if Ybound == []:
+        ymin = 1.1*np.min(fibreResponseSorted)  
+        ymax = 1.1*np.max(fibreResponseSorted)        
+    else:
+        ymin = Ybound[0]       
+        ymax = Ybound[1]          
+    
+    # Remove unecessary data
+    xinputs = fibrePositionSorted[skipStart:skipEnd, :]
+    yinputs = fibreResponseSorted[skipStart:skipEnd, :]
 
-    # EqfigNodes
-    Nsurf = len(EqfigSurfaces)
-
-    # ========================================================================
-    # Animation
-    # ========================================================================
-   
-    # Scale on displacement
-    dtInput  = dt[1]
-    dtFrames  = 1/fps
-    Ntime = len(dt)
-    Frames = np.arange(0,Ntime)
+    # Reduce the data if the user specifies
+    if rFactor != 1:
+        xinputs = xinputs[::rFactor, :]
+        yinputs = yinputs[::rFactor, :]    
+        timeSteps = timeSteps[::rFactor]
     
-    deltaAni = deltaAni*Scale
+    # If the Frames isn't specified, use the length of the reduced vector.
+    if outputFrames == 0:
+        outputFrames = len(xinputs[:, 0])
+    else:
+        outputFrames = min(outputFrames,len(xinputs[:, 0]))
     
-    # If the interval is zero
-    if FrameInterval == 0:
-        FrameInterval = dtFrames*1000/timeScale
-    else: 
-        pass    
+    # Get the final output frames. X doesn't change
+    xinputs = xinputs[:outputFrames, :]
+    yinputs = yinputs[:outputFrames, :]    
+    xinput = xinputs[0,:]
+    
+    # Initialize the plot
+    fig, ax = plt.subplots()
+    plt.subplots_adjust(bottom=.15) # Add extra space bellow graph
+    
+    line, = ax.plot(xinput, yinputs[0,:])
+    Xline = ax.plot([fibrePositionSorted[0,0],fibrePositionSorted[0,-1]], [0, 0], c ='black', linewidth = 0.5)
+    plt.xlim(xmin, xmax)
+    plt.ylim(ymin, ymax)
         
-    FrameStart = Frames[0]
-    FrameEnd = Frames[-1]
+    ax.set_ylabel(axisYlabel)  
+    ax.set_xlabel(axisXlabel)    
+
+    Frames = np.arange(0, outputFrames)
+    FrameStart = int(Frames[0])
+    FrameEnd = int(Frames[-1])
     
     # Slider Location and size relative to plot
     # [x, y, xsize, ysize]
     axSlider = plt.axes([0.25, .03, 0.50, 0.02])
-    plotSlider = Slider(axSlider, 'Frame', FrameStart, FrameEnd, valinit=FrameStart)
-    
+    plotSlider = Slider(axSlider, 'Time', timeSteps[FrameStart], timeSteps[FrameEnd], valinit=timeSteps[FrameStart])
+
     # Animation controls
-    global is_manual
-    is_manual = False # True if user has taken control of the animation   
+    global is_paused
+    is_paused = False # True if user has taken control of the animation   
     
     def on_click(event):
         # Check where the click happened
@@ -1401,145 +1427,65 @@ def getDispAnimationSlider(dt, deltaAni, nodes, elements, fig, ax, Style, Scale 
             # Event happened within the slider, ignore since it is handled in update_slider
             return
         else:
-            # user clicked somewhere else on canvas = unpause
-            global is_manual
-            is_manual=False    
-        
-    def animate2D_slider(TimeStep):
-        """
-        The slider value is liked with the plot - we update the plot by updating
-        the slider.
-        """
-        global is_manual
-        is_manual=True
-        TimeStep = int(TimeStep)
-               
-        # The current node coordinants in (x,y) or (x,y,z)
-        CurrentNodeCoords =  nodes[:,1:] + deltaAni[TimeStep,:,:]
-        # Update Plots
-        
-        # update node locations
-        EqfigNodes.set_xdata(CurrentNodeCoords[:,0]) 
-        EqfigNodes.set_ydata(CurrentNodeCoords[:,1])
-           
-        # Get new node mapping
-        # I don't like doing this loop every time - there has to be a faster way
-        xy_labels = {}
-        for jj in range(Nnodes):
-            xy_labels[nodeLabels[jj]] = CurrentNodeCoords[jj,:]
-        
-        # Define the surface
-        SurfCounter = 0
-        
-        # print('loop start')
-        # update element locations
-        for jj in range(Nele):
-            # Get the node number for the first and second node connected by the element
-            TempNodes = elements[jj][1:]
-            # This is the xy coordinates of each node in the group
-            TempNodeCoords = [xy_labels[node] for node in TempNodes] 
-            coords_x = [xy[0] for xy in TempNodeCoords]
-            coords_y = [xy[1] for xy in TempNodeCoords]
-            
-            # Update element lines    
-            EqfigElements[jj].set_xdata(coords_x)
-            EqfigElements[jj].set_ydata(coords_y)
-            # print('loop start')
-            # Update the surface if necessary
-            if 2 < len(TempNodes):
-                tempxy = np.column_stack([coords_x, coords_y])
-                EqfigSurfaces[SurfCounter].xy = tempxy
-                SurfCounter += 1
-       
-        # update time Text
-        time_text.set_text(round(TimeStep*dtInput,1))
-        time_text.set_text(str(round(TimeStep*dtInput,1)) )        
-        
-        # redraw canvas while idle
-        fig.canvas.draw_idle()    
-            
-        return EqfigNodes, EqfigElements, EqfigSurfaces, EqfigText
-
-    def animate3D_slider(TimeStep):
-        
-        global is_manual
-        is_manual=True
-        TimeStep = int(TimeStep)
-        
-        # this is the most performance critical area of code
-        
-        # The current node coordinants in (x,y) or (x,y,z)
-        CurrentNodeCoords =  nodes[:,1:] + deltaAni[TimeStep,:,:]
-        # Update Plots
-        
-        # update node locations
-        EqfigNodes.set_data_3d(CurrentNodeCoords[:,0], CurrentNodeCoords[:,1], CurrentNodeCoords[:,2])
-               
-        # Get new node mapping
-        # I don't like doing this loop every time - there has to be a faster way
-        xyz_labels = {}
-        for jj in range(Nnodes):
-            xyz_labels[nodeLabels[jj]] = CurrentNodeCoords[jj,:]        
+            # Toggle on/off based on click
+            global is_paused
+            if is_paused == True:
+                is_paused=False
+            elif is_paused == False:
+                is_paused=True       
     
-        SurfCounter = 0
-            
-        # update element locations
-        for jj in range(Nele):
-            # Get the node number for the first and second node connected by the element
-            TempNodes = elements[jj][1:]
-            # This is the xy coordinates of each node in the group
-            TempNodeCoords = [xyz_labels[node] for node in TempNodes] 
-            coords_x = [xyz[0] for xyz in TempNodeCoords]
-            coords_y = [xyz[1] for xyz in TempNodeCoords]
-            coords_z = [xyz[2] for xyz in TempNodeCoords]
-            
-            # Update element Plot    
-            EqfigElements[jj].set_data_3d(coords_x, coords_y, coords_z)
-            
-            if len(TempNodes) > 2:
-                # Update 3D surfaces
-                tempVec = np.zeros([4,4])
-                tempVec[0,:] = coords_x
-                tempVec[1,:] = coords_y
-                tempVec[2,:] = coords_z
-                tempVec[3,:] = EqfigSurfaces[SurfCounter]._vec[3,:]
-                EqfigSurfaces[SurfCounter]._vec = tempVec
-                SurfCounter += 1
-                
-        # redraw canvas while idle
-        fig.canvas.draw_idle()   
+    # Define the update function
+    def update_line_slider(Time):
+        global is_paused
+        is_paused=True
 
-        return EqfigNodes, EqfigElements, EqfigSurfaces, EqfigText
-
+        TimeStep = (np.abs(timeSteps - Time)).argmin()
+        # Get the current data        
+        y = yinputs[TimeStep,:]
+        
+        # Update the background line
+        line.set_data(xinput, y)
+        fig.canvas.draw_idle()    
+        
+        return line,
+    
+    
     def update_plot(ii):
     
         # If the control is manual, we don't change the plot    
-        global is_manual
-        if is_manual:
-            return EqfigNodes, EqfigElements, EqfigSurfaces, EqfigText
+        global is_paused
+        if is_paused:
+            return line,
        
         # Find the close timeStep and plot that
-        CurrentFrame = int(np.floor(plotSlider.val))
+        CurrentTime = plotSlider.val
+        CurrentFrame = (np.abs(timeSteps - CurrentTime)).argmin()
+
         CurrentFrame += 1
         if CurrentFrame >= FrameEnd:
-            CurrentFrame = 0
+            CurrentFrame = FrameStart
         
         # Update the slider
-        plotSlider.set_val(CurrentFrame)
-        is_manual = False # the above line called update_slider, so we need to reset this
-        return EqfigNodes, EqfigElements, EqfigSurfaces, EqfigText
-
-    if ndm == 2:
-        plotSlider.on_changed(animate2D_slider)
-    elif ndm == 3:
-        plotSlider.on_changed(animate3D_slider)
+        plotSlider.set_val(timeSteps[CurrentFrame])        
+        
+        # Update the slider
+        is_paused = False # the above line called update_slider, so we need to reset this
+        return line,  
+    
+    
+    plotSlider.on_changed(update_line_slider)
     
     # assign click control
-    fig.canvas.mpl_connect('button_press_event', on_click)
-
-    ani = animation.FuncAnimation(fig, update_plot, Frames, interval = FrameInterval)
-    return ani
-
+    fig.canvas.mpl_connect('button_press_event', on_click)    
+    
+    interval = 1000/fps
+    
+    line_ani = animation.FuncAnimation(fig, update_plot, outputFrames, 
+                                       # fargs=(xinput, yinputs, line), 
+                                       interval=interval)
+									   
+    plt.show()
+    return line_ani
 
 
 
@@ -1549,7 +1495,11 @@ def getDispAnimationSlider(dt, deltaAni, nodes, elements, fig, ax, Style, Scale 
 # Depiciated
 # =============================================================================
 
+def depricatedError():
+    print('This functions is depricated, in the future no error will return')
+
 def plot_active_model(CustomStyleFunction = None):
+    depricatedError()
     raise Exception('This function is deprciated. Instead use plot_model')
     
 
@@ -1560,7 +1510,7 @@ def saveNodesandElements(nodeName = 'Nodes', eleName = 'Elements',
         Depriciated
 
     """
-    
+    depricatedError()
     raise Exception('This function is deprciated. Instead use make a database and use database.saveNodesandElements()')
     
 def readNodesandElements(nodeName = 'Nodes', eleName = 'Elements', delim = ',', 
@@ -1569,6 +1519,7 @@ def readNodesandElements(nodeName = 'Nodes', eleName = 'Elements', delim = ',',
         Depriciated
 
     """
+    depricatedError()
     raise Exception('This function is deprciated. Instead use make a database and use database.readNodesandElements()')
 
 
@@ -1578,7 +1529,7 @@ def readDisp(DispName = 'All_Disp', outputDir = 'vis',  ftype = '.out',
         Depriciated
 
     """
-        
+    depricatedError()
     # Load the relevant information
     raise Exception('This function is deprciated. Instead use make a database and use database.readNodeDispData()')
 
@@ -1586,7 +1537,7 @@ def plot_model_disp(LoadStep,    scale = 1, dispName = 'All_Disp',
                     CustomStyleFunction = None, CustomDispStyleFunction = None,
                     nodeName = 'Nodes', eleName = 'Elements', delim = ',', 
                     dtype = 'float32', ftype = '.out'):
-    
+    depricatedError()
     raise Exception('This function is deprciated. Instead use make a database and use plot_deformedShape()')
     
     
@@ -1598,7 +1549,7 @@ def AnimateDisp(dt, deltaAni, nodes, elements, Scale = 1,
     """
     Depricated
     """
-    
+    depricatedError()
     raise Exception('This function is deprciated. Instead use make a database and use animate_deformedshape()')
 
 
@@ -1607,5 +1558,21 @@ def getDispAnimation(dt, deltaAni, nodes, elements, fig, ax, Style, Scale = 1,
     """
     Depricated
     """
-    
+    depricatedError()
     raise Exception('This function is deprciated. Instead use make a database and use animate_deformedshape()')
+    
+    
+    
+def AnimateDispSlider(dt, deltaAni, nodes, elements, Scale = 1, 
+                fps = 24, FrameInterval = 0, skipFrame =1, timeScale = 1, 
+                CustomStyleFunction = None):
+    
+    depricatedError()
+    raise Exception('This function is deprciated. Instead use make a database and use animate_deformedshape()')    
+    
+    
+def getDispAnimationSlider(dt, deltaAni, nodes, elements, fig, ax, Style, Scale = 1, 
+                           fps = 24, FrameInterval = 0, skipFrame =1, timeScale = 1):
+ 
+    depricatedError()
+    raise Exception('This function is deprciated. Instead use make a database and use animate_deformedshape()')   

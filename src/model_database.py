@@ -3,7 +3,7 @@ import openseespy.opensees as op
 import numpy as np
 from math import asin
 import warnings
-import model
+import openseespytools.model as opm
 
 
 class OutputDatabase:
@@ -156,7 +156,6 @@ class OutputDatabase:
 # Nodes and elements
 # =============================================================================
 
-
     def saveNodesandElements(self, nodeName = 'Nodes', eleName = 'Elements'):
         """   
         This file saves the node and element information for the structure. 
@@ -187,7 +186,7 @@ class OutputDatabase:
         ODBdir = self.ODBdir
     
         # Read noades and elements
-        nodes, elements = model.getNodesandElements()
+        nodes, elements = opm.getNodesandElements()
     
         # Sort through the element arrays
         ele2Node = np.array([ele for ele in elements if len(ele) == 3])
@@ -295,15 +294,13 @@ class OutputDatabase:
 # Mode shapes
 # =============================================================================
 
-    
-    
     def saveModeShapeData(self, modeNumber, modeName = "ModeShape"):
         
-        nodes_modeshape = model.getModeShapeData(modeNumber)
+        nodes_modeshape, Tn = opm.getModeShapeData(modeNumber)
                
         delim = self.delim
         fmt = self.fmt
-        ftype = self.out
+        ftype = self.ftype
         ODBdir = self.ODBdir
         
         
@@ -322,7 +319,7 @@ class OutputDatabase:
         ftype = self.ftype
             
         ODBdir = self.ODBdir        # ODB Dir name
-        ModeShapeDir = os.path.join(ODBdir,"ModeShapes")
+        ModeShapeDir = os.path.join(ODBdir, "ModeShapes")
         
         # Check if output database exists
         if not os.path.exists(ModeShapeDir):
@@ -333,6 +330,7 @@ class OutputDatabase:
         
         ## Read modal period data to display
         periods = np.loadtxt(modeTFile, dtype, delimiter = delim, unpack=False)
+        period = periods[modeNumber - 1]
         
         ## Load Node information
         try:
@@ -341,26 +339,30 @@ class OutputDatabase:
             print("Reading modeshape data from a OpenSees Tcl model")
             modeshape = np.transpose(np.loadtxt(modeFile, dtype=float, delimiter=None, converters=None, unpack=True))
     
-        return modeshape, periods
-
-
+        return modeshape, period
 
 # =============================================================================
 # Displacement
 # =============================================================================
 
 
-    def readNodeDispData(self):
-               
+    def readNodeDispData(self, DispName = "NodeDisp_All.out"):
+        
+        ODBdir =  self.ODBdir
         LoadCaseDir = self.LoadCaseName
         
         # Get number of nodes in the model to set a node displacement array
         nodes, elements = self.readNodesandElements()
         Nnodes = len(nodes)
         ndm = len(nodes[0,1:])
+               
+        NodeDispFile = os.path.join(ODBdir,LoadCaseDir, DispName)
         
-        NodeDispFile = os.path.join(LoadCaseDir,"NodeDisp_All.out")
+        if not os.path.exists(NodeDispFile):
+            print('Error: No directory found for Displacement.')        
+        
         Disp = np.transpose(np.loadtxt(NodeDispFile, dtype=float, delimiter=None, converters=None, unpack=True))
+                
         
         timeSteps = Disp[:,0]
         Ntime = len(Disp[:,0])
