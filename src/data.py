@@ -6,6 +6,7 @@ Created on Sat Aug 31 15:13:13 2019
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.signal import find_peaks
+from scipy.interpolate import interp1d
 
 
 
@@ -168,8 +169,10 @@ def GetCycleSubVector(VectorX, VectorY, Index1, Index2, Nsample):
     TempDataX = VectorX[Index1:(Index2+1)]
     TempDataY = VectorY[Index1:(Index2+1)]
     xSample = np.linspace(x1,x2,Nsample)
-    ySample = ShiftDataFrame(TempDataX,TempDataY,xSample)
-        
+    
+    InterpFunction = interp1d(TempDataX, TempDataY)
+    ySample = InterpFunction(xSample)
+          
     return xSample,ySample
         
     
@@ -286,13 +289,12 @@ def GetCycleIndicies(VectorX, VectorY = np.array([]), CreatePlot = False, peakDi
 def LinearInterpolation(x1, x2, y1, y2, x):
     dx = (x2 - x1)
     if dx == 0:
-        print('x1 and x2 are the same, using y1')
         y = y1
     else:
         y = ((y2 - y1) / (dx))*(x - x1) + y1
     
     return y
-
+   
 
 def ShiftDataFrame(Samplex, Sampley, Targetx):
     """

@@ -13,6 +13,7 @@ import numpy as np
 import openseespy.opensees as op
 import os
 from math import asin
+from scipy.interpolate import interp1d
 
 
 import openseespytools.data as D 
@@ -228,7 +229,9 @@ def getAnimationDisp(OutputDatabase, dtFrames, ndm, InputFileName = 'NodeDisp_Al
             NodeEQDisp = deltaEQ[:, jj, ii]
             
             # Shift the displacement into the animation displacement frame
-            deltaAni[:,jj,ii] = D.ShiftDataFrame(timeEarthquake, NodeEQDisp, timeAni)
+            f = interp1d(timeEarthquake, NodeEQDisp)
+            deltaAni[:,jj,ii] = f(timeAni)
+            #deltaAni[:,jj,ii] = D.ShiftDataFrame(timeEarthquake, NodeEQDisp, timeAni)
     
    
     # Save the file information if it is requested.
