@@ -35,7 +35,8 @@ def SampleData(ExperimentX, ExperimentY, AnalysisX, AnalysisY, Nsample = 10,
     Raises
     ------
     Exception
-        If the datasets don't have.
+        If the datasets don't have the same number of cycles, the sampling
+        doesn't work
 
     Returns
     -------
@@ -46,8 +47,8 @@ def SampleData(ExperimentX, ExperimentY, AnalysisX, AnalysisY, Nsample = 10,
        
     # We get the indicies where the reversal happens.
     
-    ExperimentIndicies = GetCycleIndicies(ExperimentX, ExperimentY, Nsample, peakDist, peakwidth)
-    AnalysisIndicies = GetCycleIndicies(AnalysisX, AnalysisY, Nsample, peakDist, peakwidth)
+    ExperimentIndicies = GetCycleIndicies(ExperimentX, Nsample, peakDist, peakwidth, ExperimentY)
+    AnalysisIndicies = GetCycleIndicies(AnalysisX, Nsample, peakDist, peakwidth, AnalysisY)
     
     # We check that both curves have the same number of indicies
     NIndex = len(ExperimentIndicies) - 1
@@ -135,6 +136,10 @@ def SampleMonotonicData(ExperimentX, ExperimentY, AnalysisX, AnalysisY,
 def GetCycleSubVector(VectorX, VectorY, Index1, Index2, Nsample):
     """
     
+    #TODO consider renaming to interpolate subvector! Right now this samples
+    the vector by default
+    
+    
     This function takes a input x y curve, then returns a linearlized curve
     between two indicies
     
@@ -176,8 +181,8 @@ def GetCycleSubVector(VectorX, VectorY, Index1, Index2, Nsample):
     return xSample,ySample
         
     
-def GetCycleIndicies(VectorX, VectorY = np.array([]), CreatePlot = False, peakDist = 2, 
-                     peakWidth = None, peakProminence = None):
+def GetCycleIndicies(VectorX, peakDist = 2, peakWidth = None, 
+                     peakProminence = None, VectorY = np.array([]), CreatePlot = False):
     """
     This function finds the index where there is areversal in the XY data. 
     You may need to adjust the find peaks factor to get satisfactory results.
@@ -200,20 +205,18 @@ def GetCycleIndicies(VectorX, VectorY = np.array([]), CreatePlot = False, peakDi
         Returns the arrays at which reversals occur.
 
     """
-    
-    
-    
+       
     # We find the intermediate peak values
     # We use height = 0 to select only positive or negative peaks.
-    MaxIndex,_ = find_peaks(VectorX, height = 0, distance = peakDist, 
+    MaxIndexes,_ = find_peaks(VectorX, height = (None, None), distance = peakDist, 
                             width = peakWidth, prominence = peakProminence)
     
-    MinIndex,_ = find_peaks(-VectorX, height = 0, distance = peakDist, 
+    MinIndexes,_ = find_peaks(-VectorX, height = (None, None), distance = peakDist, 
                             width = peakWidth, prominence = peakProminence)    
         
     # We store define an array that will later be used to store the
     # the max and min values in an array of indexes
-    Nindex = len(MaxIndex) + len(MinIndex) + 2
+    Nindex = len(MaxIndexes) + len(MinIndexes) + 2
     Indexes = np.zeros(Nindex, dtype = int)
     
     
@@ -224,39 +227,43 @@ def GetCycleIndicies(VectorX, VectorY = np.array([]), CreatePlot = False, peakDi
     #     MinIndex = [0]
     #     MaxIndex = [len(VectorX) - 1]
     #     Indexes = np.zeros(Nindex, dtype = int)
-
-
+    
+    # plt.plot(VectorX)
+    # plt.plot(MaxIndexes,VectorX[MaxIndexes], 'x')
+    # plt.plot(MinIndexes,VectorX[MinIndexes], '+')
+    # plt.show()
+    
     # Define first and last point
     Indexes[0] = 0
     Indexes[-1] = len(VectorX) - 1
     
-    # if only one point exists
-    
-    L1 = len(MinIndex)
-    L2 = len(MaxIndex)
+    # if only one point exists   
+    L1 = len(MinIndexes)
+    L2 = len(MaxIndexes)
     
     # We check the order, starting with the minimum number of possibilities
     # if there are no minimus, order doesn't matter
+    # If the first index is a minimum, order = 1, otherwise order = 2
     if L1 == 0 and L2 == 0:
         order = 1
     elif L1 == 0:
         order = 2
     elif L2 == 0:
         order = 1
-    elif MinIndex[0] < MaxIndex[0]:
+    elif MinIndexes[0] < MaxIndexes[0]:
         order = 1
     else:
         order = 2
     
     # We assign the order. We also check if there are any entries to assign.
     if order == 1:
-        Indexes[1:-1:2] = MinIndex
+        Indexes[1:-1:2] = MinIndexes
         if L2 !=0:
-            Indexes[2:-1:2] = MaxIndex
+            Indexes[2:-1:2] = MaxIndexes
     else:
-        Indexes[1:-1:2] = MaxIndex
+        Indexes[1:-1:2] = MaxIndexes
         if L1 !=0:
-            Indexes[2:-1:2] = MinIndex
+            Indexes[2:-1:2] = MinIndexes
     
     # make a picture if it is true
     if CreatePlot == True:
